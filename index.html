@@ -112,6 +112,18 @@
 
   .detail-table td:first-child { text-align: left; }
 
+  select {
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px;
+    font-size: 14px; font-family: inherit; background: #fff;
+  }
+  .selectors { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+  .selectors > div { display: flex; flex-direction: column; }
+  .selectors label { margin-bottom: 4px; }
+
+  .compare-table td.metric { text-align: left; font-weight: 600; background: #eef2f6; }
+  .compare-table td.diff { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .compare-table .scenario-head { text-align: center; }
+
   .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
 
   .pdf-only { display: none; }
@@ -220,6 +232,61 @@
       <div style="overflow-x:auto;"><div id="detailWrap"></div></div>
     </section>
 
+    <!-- ===== Seller's perspective ===== -->
+    <section class="card" id="sellerCard">
+      <h2>Seller's Perspective &mdash; Interest Earned</h2>
+      <p class="note">What the owner stands to gain by financing instead of taking cash. Total received is the down payment plus every monthly payment; interest earned is the profit above the sale price. Use this to show the seller why financing beats a cash sale.</p>
+      <div style="overflow-x:auto;"><div id="sellerWrap"></div></div>
+    </section>
+
+    <!-- ===== Side-by-side comparison ===== -->
+    <section class="card" id="compareCard">
+      <h2>Side-by-Side Comparison</h2>
+      <div class="selectors no-print">
+        <div>
+          <label>Scenario A &mdash; Term</label>
+          <select id="cmpTermA"></select>
+        </div>
+        <div>
+          <label>Scenario A &mdash; Rate</label>
+          <select id="cmpRateA"></select>
+        </div>
+        <div>
+          <label>Scenario B &mdash; Term</label>
+          <select id="cmpTermB"></select>
+        </div>
+        <div>
+          <label>Scenario B &mdash; Rate</label>
+          <select id="cmpRateB"></select>
+        </div>
+      </div>
+      <div style="overflow-x:auto;"><div id="compareWrap"></div></div>
+    </section>
+
+    <!-- ===== Amortization schedule ===== -->
+    <section class="card" id="scheduleCard">
+      <h2>Amortization Schedule</h2>
+      <div class="selectors no-print">
+        <div>
+          <label>Term</label>
+          <select id="schTerm"></select>
+        </div>
+        <div>
+          <label>Rate</label>
+          <select id="schRate"></select>
+        </div>
+        <div>
+          <label>Detail</label>
+          <select id="schDetail">
+            <option value="year">Yearly summary</option>
+            <option value="month">Month by month</option>
+          </select>
+        </div>
+      </div>
+      <p class="note" id="scheduleNote"></p>
+      <div style="overflow-x:auto;"><div id="scheduleWrap"></div></div>
+    </section>
+
   </div>
 </div>
 
@@ -230,6 +297,7 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var downMode = "dollar"; // or "pct"
+  var state = null; // last computed scenario, shared by the interactive sections
 
   $("downDollar").addEventListener("click", function () { setDownMode("dollar"); });
   $("downPct").addEventListener("click", function () { setDownMode("pct"); });
@@ -245,6 +313,13 @@
 
   $("calcBtn").addEventListener("click", calculate);
   $("pdfBtn").addEventListener("click", function () { window.print(); });
+
+  ["cmpTermA", "cmpRateA", "cmpTermB", "cmpRateB"].forEach(function (id) {
+    $(id).addEventListener("change", buildComparison);
+  });
+  ["schTerm", "schRate", "schDetail"].forEach(function (id) {
+    $(id).addEventListener("change", buildSchedule);
+  });
 
   // --- formatting helpers ---
   function money(n) {
@@ -354,6 +429,19 @@
     // ---- Detail table ----
     buildDetail(principal, terms, rates, useBalloon, balloonYears);
 
+    // ---- Seller's perspective ----
+    buildSeller(price, down, principal, terms, rates, useBalloon, balloonYears);
+
+    // ---- Stash state for the interactive sections, then build them ----
+    state = {
+      price: price, down: down, principal: principal,
+      terms: terms, rates: rates,
+      useBalloon: useBalloon, balloonYears: balloonYears
+    };
+    populateSelectors();
+    buildComparison();
+    buildSchedule();
+
     $("results").style.display = "block";
     $("results").scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -393,6 +481,218 @@
     });
     html += "</tbody></table>";
     $("detailWrap").innerHTML = html;
+  }
+
+  // ---- Seller's perspective: interest earned / total received ----
+  function buildSeller(price, down, principal, terms, rates, useBalloon, balloonYears) {
+    var html = "<table class='detail-table'><thead><tr>";
+    html += "<th style='text-align:left'>Scenario</th>";
+    html += "<th>Monthly income</th>";
+    if (useBalloon) {
+      html += "<th>Collected before balloon</th>";
+      html += "<th>Balloon received<br><span class='hint'>@ " + balloonYears + " yr</span></th>";
+      html += "<th>Interest earned</th>";
+    } else {
+      html += "<th>Interest earned</th>";
+      html += "<th>Total received<br><span class='hint'>incl. down</span></th>";
+    }
+    html += "</tr></thead><tbody>";
+
+    terms.forEach(function (term) {
+      rates.forEach(function (rate) {
+        var pmt = monthlyPayment(principal, rate, term);
+        html += "<tr><td>" + term + " yr @ " + formatRate(rate) + "</td>";
+        html += "<td>" + money2(pmt) + "</td>";
+        if (useBalloon) {
+          var k = Math.min(balloonYears * 12, term * 12);
+          var collected = pmt * k;
+          var bal = remainingBalance(principal, rate, term, k);
+          // Interest earned by the balloon date = payments collected + balloon - principal financed.
+          var interest = collected + bal - principal;
+          html += "<td>" + money(collected) + "</td>";
+          html += "<td>" + money(bal) + "</td>";
+          html += "<td>" + money(interest) + "</td>";
+        } else {
+          var totalPayments = pmt * term * 12;
+          var interestFull = totalPayments - principal;
+          var totalReceived = down + totalPayments; // down + every monthly payment
+          html += "<td>" + money(interestFull) + "</td>";
+          html += "<td>" + money(totalReceived) + "</td>";
+        }
+        html += "</tr>";
+      });
+    });
+    html += "</tbody></table>";
+    $("sellerWrap").innerHTML = html;
+  }
+
+  // ---- Populate the term/rate dropdowns from the current scenario ----
+  function populateSelectors() {
+    var termOpts = state.terms.map(function (t) {
+      return "<option value='" + t + "'>" + t + " yr</option>";
+    }).join("");
+    var rateOpts = state.rates.map(function (r) {
+      return "<option value='" + r + "'>" + formatRate(r) + "</option>";
+    }).join("");
+
+    // Sensible defaults: A = shortest term / a mid rate, B = longest term / same rate.
+    fillSelect("cmpTermA", termOpts, state.terms[0]);
+    fillSelect("cmpTermB", termOpts, state.terms[state.terms.length - 1]);
+    var midRate = state.rates[Math.floor(state.rates.length / 2)];
+    fillSelect("cmpRateA", rateOpts, midRate);
+    fillSelect("cmpRateB", rateOpts, midRate);
+
+    fillSelect("schTerm", termOpts, state.terms[state.terms.length - 1]);
+    fillSelect("schRate", rateOpts, midRate);
+  }
+
+  function fillSelect(id, optsHtml, value) {
+    var el = $(id);
+    el.innerHTML = optsHtml;
+    el.value = String(value);
+  }
+
+  // ---- Side-by-side comparison of two chosen scenarios ----
+  function buildComparison() {
+    if (!state) return;
+    var a = scenario(parseFloat($("cmpTermA").value), parseFloat($("cmpRateA").value));
+    var b = scenario(parseFloat($("cmpTermB").value), parseFloat($("cmpRateB").value));
+
+    function row(label, va, vb, diffFn) {
+      var diff = diffFn ? "<td class='diff'>" + diffFn(va.raw, vb.raw) + "</td>" : "<td class='diff'></td>";
+      return "<tr><td class='metric'>" + label + "</td><td>" + va.txt + "</td><td>" + vb.txt + "</td>" + diff + "</tr>";
+    }
+    function delta(x, y) {
+      var d = x - y;
+      var sign = d > 0 ? "+" : (d < 0 ? "−" : "");
+      return sign + money2(Math.abs(d));
+    }
+    function deltaWhole(x, y) {
+      var d = x - y;
+      var sign = d > 0 ? "+" : (d < 0 ? "−" : "");
+      return sign + money(Math.abs(d));
+    }
+
+    var html = "<table class='compare-table detail-table'><thead><tr>";
+    html += "<th style='text-align:left'>Metric</th>";
+    html += "<th class='scenario-head'>Scenario A<br><span class='hint'>" + a.label + "</span></th>";
+    html += "<th class='scenario-head'>Scenario B<br><span class='hint'>" + b.label + "</span></th>";
+    html += "<th class='scenario-head'>Difference<br><span class='hint'>A &minus; B</span></th>";
+    html += "</tr></thead><tbody>";
+
+    html += row("Amount financed",
+      { txt: money(a.principal), raw: a.principal }, { txt: money(b.principal), raw: b.principal });
+    html += row("Monthly payment (P&amp;I)",
+      { txt: money2(a.pmt), raw: a.pmt }, { txt: money2(b.pmt), raw: b.pmt }, delta);
+
+    if (state.useBalloon) {
+      html += row("Paid before balloon",
+        { txt: money(a.paidBeforeBalloon), raw: a.paidBeforeBalloon },
+        { txt: money(b.paidBeforeBalloon), raw: b.paidBeforeBalloon }, deltaWhole);
+      html += row("Balloon balance due @ " + state.balloonYears + " yr",
+        { txt: money(a.balloon), raw: a.balloon }, { txt: money(b.balloon), raw: b.balloon }, deltaWhole);
+      html += row("Interest paid by balloon date",
+        { txt: money(a.interestToBalloon), raw: a.interestToBalloon },
+        { txt: money(b.interestToBalloon), raw: b.interestToBalloon }, deltaWhole);
+    } else {
+      html += row("Total interest (full term)",
+        { txt: money(a.totalInterest), raw: a.totalInterest },
+        { txt: money(b.totalInterest), raw: b.totalInterest }, deltaWhole);
+      html += row("Total paid (full term)",
+        { txt: money(a.totalPaid), raw: a.totalPaid }, { txt: money(b.totalPaid), raw: b.totalPaid }, deltaWhole);
+    }
+    html += "</tbody></table>";
+    $("compareWrap").innerHTML = html;
+  }
+
+  // Build a fully-described scenario object for the chosen term & rate.
+  function scenario(term, rate) {
+    var P = state.principal;
+    var pmt = monthlyPayment(P, rate, term);
+    var totalPaid = pmt * term * 12;
+    var s = {
+      term: term, rate: rate, principal: P, pmt: pmt,
+      label: term + " yr @ " + formatRate(rate),
+      totalPaid: totalPaid,
+      totalInterest: totalPaid - P
+    };
+    if (state.useBalloon) {
+      var k = Math.min(state.balloonYears * 12, term * 12);
+      s.paidBeforeBalloon = pmt * k;
+      s.balloon = remainingBalance(P, rate, term, k);
+      s.interestToBalloon = s.paidBeforeBalloon + s.balloon - P;
+    }
+    return s;
+  }
+
+  // ---- Full amortization schedule for one chosen scenario ----
+  function buildSchedule() {
+    if (!state) return;
+    var term = parseFloat($("schTerm").value);
+    var rate = parseFloat($("schRate").value);
+    var byMonth = $("schDetail").value === "month";
+    var P = state.principal;
+    var r = (rate / 100) / 12;
+    var pmt = monthlyPayment(P, rate, term);
+    var totalMonths = term * 12;
+
+    // If a balloon applies, the schedule stops at the balloon date.
+    var balloonMonth = state.useBalloon ? Math.min(state.balloonYears * 12, totalMonths) : 0;
+    var stopMonth = balloonMonth || totalMonths;
+
+    var note = "Schedule for " + term + " yr @ " + formatRate(rate) +
+      " on " + money(P) + " financed. Monthly payment " + money2(pmt) + ".";
+    if (state.useBalloon && balloonMonth < totalMonths) {
+      note += " Payments are amortized over " + term + " years, but the loan is paid off with a balloon at year " + state.balloonYears + ".";
+    }
+    $("scheduleNote").innerHTML = note;
+
+    var balance = P;
+    var cumInterest = 0;
+    var rows = "";
+
+    if (byMonth) {
+      for (var m = 1; m <= stopMonth; m++) {
+        var interest = balance * r;
+        var principalPaid = pmt - interest;
+        balance -= principalPaid;
+        if (balance < 0.005) balance = 0;
+        cumInterest += interest;
+        rows += "<tr><td>" + m + "</td><td>" + money2(pmt) + "</td><td>" + money2(principalPaid) +
+          "</td><td>" + money2(interest) + "</td><td>" + money2(cumInterest) + "</td><td>" + money2(balance) + "</td></tr>";
+      }
+    } else {
+      // Yearly summary: accumulate within each 12-month block.
+      var yearInterest = 0, yearPrincipal = 0;
+      for (var mm = 1; mm <= stopMonth; mm++) {
+        var int2 = balance * r;
+        var prin2 = pmt - int2;
+        balance -= prin2;
+        if (balance < 0.005) balance = 0;
+        cumInterest += int2;
+        yearInterest += int2;
+        yearPrincipal += prin2;
+        if (mm % 12 === 0 || mm === stopMonth) {
+          var yr = Math.ceil(mm / 12);
+          rows += "<tr><td>" + yr + "</td><td>" + money(yearPrincipal) + "</td><td>" + money(yearInterest) +
+            "</td><td>" + money(cumInterest) + "</td><td>" + money(balance) + "</td></tr>";
+          yearInterest = 0; yearPrincipal = 0;
+        }
+      }
+    }
+
+    // Balloon payoff row.
+    if (state.useBalloon && balloonMonth < totalMonths && balance > 0) {
+      var span = byMonth ? 5 : 4;
+      rows += "<tr style='font-weight:600;background:var(--warn-bg)'><td colspan='" + span +
+        "'>Balloon payment due at year " + state.balloonYears + "</td><td>" + money(balance) + "</td></tr>";
+    }
+
+    var head = byMonth
+      ? "<tr><th>Month</th><th>Payment</th><th>Principal</th><th>Interest</th><th>Cumulative interest</th><th>Balance</th></tr>"
+      : "<tr><th>Year</th><th>Principal paid</th><th>Interest paid</th><th>Cumulative interest</th><th>Year-end balance</th></tr>";
+
+    $("scheduleWrap").innerHTML = "<table class='detail-table'><thead>" + head + "</thead><tbody>" + rows + "</tbody></table>";
   }
 
   function formatRate(rate) {
