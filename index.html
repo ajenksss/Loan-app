@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Owner Financing Loan Calculator</title>
+<title>Property Deal Structurer</title>
 <style>
   :root {
     --ink: #1a2330;
@@ -17,6 +17,7 @@
     --bad: #c0392b;
     --bad-bg: #fdecea;
     --warn-bg: #fff6e0;
+    --pitch-bg: #f0f6ff;
   }
 
   * { box-sizing: border-box; }
@@ -34,10 +35,21 @@
   header.page-head {
     border-bottom: 3px solid var(--accent);
     padding-bottom: 14px;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
   }
   header.page-head h1 { margin: 0 0 4px; font-size: 26px; }
   header.page-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* ---- Tabs ---- */
+  .tabs { display: flex; gap: 6px; margin-bottom: 22px; flex-wrap: wrap; }
+  .tabs button {
+    background: #e9eef3; color: var(--accent); border: 1px solid var(--line);
+    border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 18px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
   .card {
     background: var(--card);
@@ -52,37 +64,34 @@
     color: var(--accent);
     letter-spacing: .3px;
   }
+  .card h2 .sub { font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
 
   label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
   .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
 
-  input[type="text"], input[type="number"] {
+  input[type="text"], input[type="number"], input[type="date"], textarea, select {
     width: 100%;
     padding: 9px 11px;
     border: 1px solid var(--line);
     border-radius: 7px;
     font-size: 15px;
     font-family: inherit;
+    background: #fff;
   }
-  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(44,95,138,.12); }
+  textarea { resize: vertical; min-height: 54px; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(44,95,138,.12); }
 
-  .down-row { display: flex; gap: 8px; }
-  .down-row input { flex: 1; }
-  .toggle {
-    display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden;
-  }
-  .toggle button {
-    border: none; background: #fff; padding: 0 12px; cursor: pointer; font-size: 14px; color: var(--muted);
-  }
+  .toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .toggle button { border: none; background: #fff; padding: 8px 16px; cursor: pointer; font-size: 14px; color: var(--muted); font-weight: 600; }
   .toggle button.active { background: var(--accent); color: #fff; }
 
   .check { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
   .check input { width: auto; }
   .check label { margin: 0; font-weight: 500; }
 
-  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
   button.primary {
     background: var(--accent); color: #fff; border: none; border-radius: 8px;
     padding: 12px 22px; font-size: 15px; font-weight: 600; cursor: pointer;
@@ -90,8 +99,12 @@
   button.primary:hover { background: #234c6e; }
   button.ghost {
     background: #fff; color: var(--accent); border: 1px solid var(--accent);
-    border-radius: 8px; padding: 12px 22px; font-size: 15px; font-weight: 600; cursor: pointer;
+    border-radius: 8px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
   }
+  button.ghost:hover { background: #eef4fa; }
+  button.danger { color: var(--bad); border-color: var(--bad); }
+  button.danger:hover { background: var(--bad-bg); }
+  button.tiny { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
 
   .summary-line { font-size: 15px; margin: 0 0 6px; }
   .summary-line strong { font-size: 18px; }
@@ -103,6 +116,7 @@
   td.cell { font-variant-numeric: tabular-nums; }
   td.cell.good { background: var(--good-bg); color: var(--good); font-weight: 600; }
   td.cell.bad { background: var(--bad-bg); color: var(--bad); }
+  .detail-table td:first-child { text-align: left; }
 
   .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; margin-top: 12px; color: var(--muted); }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -110,33 +124,71 @@
   .swatch.good { background: var(--good-bg); }
   .swatch.bad { background: var(--bad-bg); }
 
-  .detail-table td:first-child { text-align: left; }
-
-  select {
-    padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px;
-    font-size: 14px; font-family: inherit; background: #fff;
-  }
   .selectors { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
   .selectors > div { display: flex; flex-direction: column; }
   .selectors label { margin-bottom: 4px; }
-
   .compare-table td.metric { text-align: left; font-weight: 600; background: #eef2f6; }
   .compare-table td.diff { color: var(--muted); font-variant-numeric: tabular-nums; }
   .compare-table .scenario-head { text-align: center; }
 
   .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
-
   .pdf-only { display: none; }
+
+  /* ---- Deal Structurer specific ---- */
+  .deal-list { display: flex; flex-direction: column; gap: 8px; }
+  .deal-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fbfcfd;
+  }
+  .deal-row.selected { border-color: var(--accent); background: #eef4fa; }
+  .deal-row .meta { font-size: 12px; color: var(--muted); }
+  .deal-row .name { font-weight: 600; font-size: 14px; }
+  .deal-row .btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .empty-msg { color: var(--muted); font-size: 14px; font-style: italic; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .stat { background: #fbfcfd; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .stat .k { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .v.good { color: var(--good); }
+  .stat .v.bad { color: var(--bad); }
+
+  .pitch-box {
+    background: var(--pitch-bg); border: 1px solid #cfe0f2; border-left: 4px solid var(--accent);
+    border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; font-size: 15px; line-height: 1.6;
+  }
+  .pitch-box h4 { margin: 0 0 8px; font-size: 14px; color: var(--accent); }
+  .pitch-box p { margin: 0 0 10px; }
+  .pitch-box p:last-child { margin-bottom: 0; }
+  .pitch-box .big { font-weight: 700; }
+
+  .lookup-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .lookup-links a {
+    font-size: 13px; color: var(--accent); text-decoration: none; border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 7px; background: #fff;
+  }
+  .lookup-links a:hover { background: #eef4fa; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 12px 20px; border-radius: 8px;
+    font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 50;
+  }
+  .toast.show { opacity: .95; }
 
   /* ---------- Print / PDF styling ---------- */
   @media print {
     body { background: #fff; }
     .no-print { display: none !important; }
     .pdf-only { display: block; }
+    .tabs { display: none; }
     .wrap { max-width: none; padding: 0; }
+    .tab-panel { display: block !important; }
+    #tab-calc { display: none !important; }   /* don't print the calculator when printing a pitch */
     .card { border: none; padding: 0 0 18px; margin-bottom: 18px; page-break-inside: avoid; }
     .card h2 { color: #000; border-bottom: 1px solid #999; padding-bottom: 4px; }
     header.page-head { border-color: #000; }
+    .pitch-box { background: #f3f7fc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     td.cell.good { background: var(--good-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     td.cell.bad { background: var(--bad-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -148,193 +200,827 @@
 <div class="wrap">
 
   <header class="page-head">
-    <h1 id="docTitle">Owner Financing Loan Analysis</h1>
-    <p id="docSub">Monthly payment comparison across terms &amp; interest rates</p>
+    <h1 id="docTitle">Property Deal Structurer</h1>
+    <p id="docSub">Frame an offer the seller can't ignore — then size the payments.</p>
   </header>
 
-  <!-- ============ INPUTS ============ -->
-  <section class="card no-print">
-    <h2>Deal Inputs</h2>
-    <div class="grid">
-      <div>
-        <label>Property / Deal name <span class="hint">(shows on PDF)</span></label>
-        <input type="text" id="dealName" placeholder="123 Main St" />
+  <div class="tabs no-print">
+    <button id="tabBtnDeal" class="active">Deal Structurer</button>
+    <button id="tabBtnCalc">Payment Calculator</button>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- ============================ TAB 1: DEAL ============================ -->
+  <!-- ===================================================================== -->
+  <div id="tab-deal" class="tab-panel active">
+
+    <!-- ===== Saved deals ===== -->
+    <section class="card no-print">
+      <h2>Saved Deals <span class="sub">— stored in this browser</span></h2>
+      <div id="dealList" class="deal-list"></div>
+      <div class="actions" style="margin-top:14px;">
+        <button class="ghost" id="newDealBtn">+ New deal</button>
+        <button class="ghost" id="exportBtn">Export all (backup)</button>
+        <button class="ghost" id="importBtn">Import backup</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none;" />
       </div>
-      <div>
-        <label>Purchase prices to compare <span class="hint">(comma-separated)</span></label>
-        <input type="text" id="prices" value="180000, 200000, 220000" />
+    </section>
+
+    <!-- ===== Property inputs ===== -->
+    <section class="card no-print">
+      <h2>Property &amp; Seller</h2>
+      <div class="grid">
+        <div>
+          <label>Property / address <span class="hint">(shows on pitch)</span></label>
+          <input type="text" id="d_name" placeholder="123 Main St" />
+        </div>
+        <div>
+          <label>What the seller paid <span class="hint">(their basis)</span></label>
+          <input type="number" id="d_basis" placeholder="180000" min="0" step="1000" />
+        </div>
+        <div>
+          <label>When they bought it <span class="hint">(optional)</span></label>
+          <input type="date" id="d_date" />
+        </div>
+        <div>
+          <label>Estimated value today <span class="hint">(optional — manual)</span></label>
+          <input type="number" id="d_value" placeholder="leave blank to skip" min="0" step="1000" />
+        </div>
+        <div>
+          <label>Seller's monthly cash flow <span class="hint">(net, after expenses)</span></label>
+          <input type="number" id="d_cashflow" placeholder="500" min="0" step="25" />
+        </div>
+        <div>
+          <label>Gross monthly rent <span class="hint">(optional)</span></label>
+          <input type="number" id="d_rent" placeholder="optional" min="0" step="25" />
+        </div>
       </div>
-      <div>
-        <label>Your max monthly payment <span class="hint">(your true limit)</span></label>
-        <input type="number" id="budget" value="1500" min="0" step="50" />
+      <div style="margin-top:14px;">
+        <label>Notes <span class="hint">(condition, motivation, anything to remember)</span></label>
+        <textarea id="d_notes" placeholder="e.g. tired landlord, tenant in place, roof is 3 yrs old..."></textarea>
       </div>
-      <div>
-        <label>Down payments to compare
-          <span class="hint">(comma-separated)</span></label>
-        <div class="down-row">
-          <input type="text" id="downs" value="0, 20000, 40000" />
-          <div class="toggle">
-            <button type="button" id="downDollar" class="active">$</button>
-            <button type="button" id="downPct">%</button>
+
+      <div class="lookup-links" id="lookupLinks"></div>
+
+      <div class="actions" style="margin-top:16px;">
+        <button class="primary" id="saveDealBtn">Save deal</button>
+        <button class="ghost" id="analyzeBtn">Analyze &amp; build pitch</button>
+        <span class="hint" id="saveState"></span>
+      </div>
+    </section>
+
+    <!-- ===== Offer setup ===== -->
+    <section class="card no-print">
+      <h2>Your Offer</h2>
+      <div class="grid">
+        <div>
+          <label>Offer price(s) to compare <span class="hint">(comma-separated)</span></label>
+          <input type="text" id="d_offers" value="200000, 215000, 230000" />
+        </div>
+        <div>
+          <label>Pitch style</label>
+          <div class="toggle" id="pitchToggle">
+            <button type="button" id="modeCash" class="active">Cash / lump-sum</button>
+            <button type="button" id="modeFinance">Owner-finance</button>
           </div>
         </div>
       </div>
-      <div>
-        <label>Loan terms to compare <span class="hint">(years, comma-separated)</span></label>
-        <input type="text" id="terms" value="10, 15, 20, 30" />
+
+      <div id="financeInputs" style="display:none; margin-top:16px;">
+        <div class="grid">
+          <div>
+            <label>Down payment <span class="hint">($ the seller gets up front)</span></label>
+            <input type="number" id="f_down" value="20000" min="0" step="1000" />
+          </div>
+          <div>
+            <label>Term <span class="hint">(years)</span></label>
+            <input type="number" id="f_term" value="20" min="1" step="1" />
+          </div>
+          <div>
+            <label>Interest rate <span class="hint">(% the seller earns)</span></label>
+            <input type="number" id="f_rate" value="6" min="0" step="0.25" />
+          </div>
+        </div>
+        <div class="check">
+          <input type="checkbox" id="f_balloon" />
+          <label for="f_balloon">Balloon — amortize over the term but pay the balance off after a set number of years</label>
+        </div>
+        <div class="grid" id="f_balloonRow" style="margin-top:12px; display:none;">
+          <div>
+            <label>Balloon due after <span class="hint">(years)</span></label>
+            <input type="number" id="f_balloonYears" value="5" min="1" step="1" />
+          </div>
+        </div>
       </div>
-      <div>
-        <label>Interest rates to compare <span class="hint">(%, comma-separated)</span></label>
-        <input type="text" id="rates" value="0, 3, 4, 5, 6, 7, 8" />
+
+      <div class="actions" style="margin-top:16px;">
+        <button class="primary" id="analyzeBtn2">Analyze &amp; build pitch</button>
+        <button class="ghost no-print" id="printPitchBtn">Save pitch as PDF / Print</button>
       </div>
+    </section>
+
+    <!-- ===== Results ===== -->
+    <div id="dealResults" style="display:none;">
+
+      <section class="card pdf-only" id="pitchMeta"></section>
+
+      <section class="card">
+        <h2>Deal Snapshot</h2>
+        <div id="snapshot" class="stat-grid"></div>
+        <p class="note" id="snapshotNote"></p>
+      </section>
+
+      <section class="card">
+        <h2>What Each Offer Means to the Seller</h2>
+        <p class="note" id="offerTableNote"></p>
+        <div style="overflow-x:auto;"><div id="offerTableWrap"></div></div>
+      </section>
+
+      <section class="card">
+        <h2>The Pitch <span class="sub">— numbers to put in front of them</span></h2>
+        <div class="selectors no-print">
+          <div>
+            <label>Build the pitch around</label>
+            <select id="pitchOffer"></select>
+          </div>
+          <div style="justify-content:flex-end;">
+            <button class="ghost tiny no-print" id="copyPitchBtn" style="margin-top:18px;">Copy pitch text</button>
+          </div>
+        </div>
+        <div id="pitchWrap"></div>
+      </section>
+
     </div>
-
-    <div class="check">
-      <input type="checkbox" id="useBalloon" />
-      <label for="useBalloon">Balloon payment &mdash; amortize over the term above but pay off the remaining balance after a set number of years</label>
-    </div>
-    <div class="grid" id="balloonRow" style="margin-top:12px; display:none;">
-      <div>
-        <label>Balloon due after <span class="hint">(years)</span></label>
-        <input type="number" id="balloonYears" value="5" min="1" step="1" />
-      </div>
-    </div>
-
-    <div class="actions" style="margin-top:18px;">
-      <button class="primary" id="calcBtn">Calculate</button>
-      <button class="ghost no-print" id="pdfBtn">Save as PDF / Print</button>
-    </div>
-  </section>
-
-  <!-- ============ RESULTS ============ -->
-  <div id="results" style="display:none;">
-
-    <!-- PDF header info -->
-    <section class="card pdf-only" id="pdfMeta"></section>
-
-    <section class="card">
-      <h2>Loan Summary</h2>
-      <div id="summary"></div>
-    </section>
-
-    <section class="card">
-      <h2>Monthly Payment by Term &amp; Rate</h2>
-      <p class="note">One grid per down payment. Each cell is the monthly principal &amp; interest payment. <strong>Green</strong> cells fall at or under your max monthly payment; <strong>red</strong> cells are over it.</p>
-      <div class="legend">
-        <span><span class="swatch good"></span> At or under your max</span>
-        <span><span class="swatch bad"></span> Over your max</span>
-      </div>
-      <div id="gridsWrap"></div>
-      <p class="note" id="matrixNote"></p>
-    </section>
-
-    <!-- ===== Max affordable price ===== -->
-    <section class="card" id="maxPriceCard">
-      <h2>Your True Limit &mdash; Max Purchase Price You Can Afford</h2>
-      <p class="note">Working backwards from your max monthly payment of <strong id="maxPmtEcho"></strong>: for each down payment, term, and rate, this is the highest purchase price whose payment still fits your limit. This is the number to keep in your head at the negotiating table.</p>
-      <div id="maxPriceWrap"></div>
-    </section>
-
-    <section class="card" id="detailCard">
-      <h2>Total Cost Detail</h2>
-      <div class="selectors no-print">
-        <div>
-          <label>Purchase price</label>
-          <select id="focusPrice"></select>
-        </div>
-        <div>
-          <label>Down payment</label>
-          <select id="focusDown"></select>
-        </div>
-      </div>
-      <p class="note">Total interest and total paid over the full term (principal &amp; interest only &mdash; taxes and insurance not included), for the down payment selected above.</p>
-      <div style="overflow-x:auto;"><div id="detailWrap"></div></div>
-    </section>
-
-    <!-- ===== Seller's perspective ===== -->
-    <section class="card" id="sellerCard">
-      <h2>Seller's Perspective &mdash; Interest Earned</h2>
-      <p class="note">What the owner stands to gain by financing instead of taking cash, for the down payment selected above. Total received is the down payment plus every monthly payment; interest earned is the profit above the sale price. Use this to show the seller why financing beats a cash sale.</p>
-      <div style="overflow-x:auto;"><div id="sellerWrap"></div></div>
-    </section>
-
-    <!-- ===== Side-by-side comparison ===== -->
-    <section class="card" id="compareCard">
-      <h2>Side-by-Side Comparison</h2>
-      <div class="selectors no-print">
-        <div>
-          <label>Scenario A &mdash; Price</label>
-          <select id="cmpPriceA"></select>
-        </div>
-        <div>
-          <label>Scenario A &mdash; Down</label>
-          <select id="cmpDownA"></select>
-        </div>
-        <div>
-          <label>Scenario A &mdash; Term</label>
-          <select id="cmpTermA"></select>
-        </div>
-        <div>
-          <label>Scenario A &mdash; Rate</label>
-          <select id="cmpRateA"></select>
-        </div>
-      </div>
-      <div class="selectors no-print">
-        <div>
-          <label>Scenario B &mdash; Price</label>
-          <select id="cmpPriceB"></select>
-        </div>
-        <div>
-          <label>Scenario B &mdash; Down</label>
-          <select id="cmpDownB"></select>
-        </div>
-        <div>
-          <label>Scenario B &mdash; Term</label>
-          <select id="cmpTermB"></select>
-        </div>
-        <div>
-          <label>Scenario B &mdash; Rate</label>
-          <select id="cmpRateB"></select>
-        </div>
-      </div>
-      <div style="overflow-x:auto;"><div id="compareWrap"></div></div>
-    </section>
-
-    <!-- ===== Amortization schedule ===== -->
-    <section class="card" id="scheduleCard">
-      <h2>Amortization Schedule</h2>
-      <div class="selectors no-print">
-        <div>
-          <label>Purchase price</label>
-          <select id="schPrice"></select>
-        </div>
-        <div>
-          <label>Down payment</label>
-          <select id="schDown"></select>
-        </div>
-        <div>
-          <label>Term</label>
-          <select id="schTerm"></select>
-        </div>
-        <div>
-          <label>Rate</label>
-          <select id="schRate"></select>
-        </div>
-        <div>
-          <label>Detail</label>
-          <select id="schDetail">
-            <option value="year">Yearly summary</option>
-            <option value="month">Month by month</option>
-          </select>
-        </div>
-      </div>
-      <p class="note" id="scheduleNote"></p>
-      <div style="overflow-x:auto;"><div id="scheduleWrap"></div></div>
-    </section>
-
   </div>
+
+  <!-- ===================================================================== -->
+  <!-- ======================= TAB 2: PAYMENT CALC ========================= -->
+  <!-- ===================================================================== -->
+  <div id="tab-calc" class="tab-panel">
+
+    <section class="card no-print">
+      <h2>Deal Inputs <span class="sub">— monthly payment comparison</span></h2>
+      <div class="grid">
+        <div>
+          <label>Property / Deal name <span class="hint">(shows on PDF)</span></label>
+          <input type="text" id="dealName" placeholder="123 Main St" />
+        </div>
+        <div>
+          <label>Purchase prices to compare <span class="hint">(comma-separated)</span></label>
+          <input type="text" id="prices" value="180000, 200000, 220000" />
+        </div>
+        <div>
+          <label>Your max monthly payment <span class="hint">(your true limit)</span></label>
+          <input type="number" id="budget" value="1500" min="0" step="50" />
+        </div>
+        <div>
+          <label>Down payments to compare
+            <span class="hint">(comma-separated)</span></label>
+          <div class="down-row" style="display:flex; gap:8px;">
+            <input type="text" id="downs" value="0, 20000, 40000" style="flex:1;" />
+            <div class="toggle">
+              <button type="button" id="downDollar" class="active">$</button>
+              <button type="button" id="downPct">%</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label>Loan terms to compare <span class="hint">(years, comma-separated)</span></label>
+          <input type="text" id="terms" value="10, 15, 20, 30" />
+        </div>
+        <div>
+          <label>Interest rates to compare <span class="hint">(%, comma-separated)</span></label>
+          <input type="text" id="rates" value="0, 3, 4, 5, 6, 7, 8" />
+        </div>
+      </div>
+
+      <div class="check">
+        <input type="checkbox" id="useBalloon" />
+        <label for="useBalloon">Balloon payment &mdash; amortize over the term above but pay off the remaining balance after a set number of years</label>
+      </div>
+      <div class="grid" id="balloonRow" style="margin-top:12px; display:none;">
+        <div>
+          <label>Balloon due after <span class="hint">(years)</span></label>
+          <input type="number" id="balloonYears" value="5" min="1" step="1" />
+        </div>
+      </div>
+
+      <div class="actions" style="margin-top:18px;">
+        <button class="primary" id="calcBtn">Calculate</button>
+        <button class="ghost no-print" id="pdfBtn">Save as PDF / Print</button>
+      </div>
+    </section>
+
+    <div id="results" style="display:none;">
+      <section class="card pdf-only" id="pdfMeta"></section>
+
+      <section class="card">
+        <h2>Loan Summary</h2>
+        <div id="summary"></div>
+      </section>
+
+      <section class="card">
+        <h2>Monthly Payment by Term &amp; Rate</h2>
+        <p class="note">One grid per down payment. Each cell is the monthly principal &amp; interest payment. <strong>Green</strong> cells fall at or under your max monthly payment; <strong>red</strong> cells are over it.</p>
+        <div class="legend">
+          <span><span class="swatch good"></span> At or under your max</span>
+          <span><span class="swatch bad"></span> Over your max</span>
+        </div>
+        <div id="gridsWrap"></div>
+        <p class="note" id="matrixNote"></p>
+      </section>
+
+      <section class="card" id="maxPriceCard">
+        <h2>Your True Limit &mdash; Max Purchase Price You Can Afford</h2>
+        <p class="note">Working backwards from your max monthly payment of <strong id="maxPmtEcho"></strong>: for each down payment, term, and rate, this is the highest purchase price whose payment still fits your limit.</p>
+        <div id="maxPriceWrap"></div>
+      </section>
+
+      <section class="card" id="detailCard">
+        <h2>Total Cost Detail</h2>
+        <div class="selectors no-print">
+          <div><label>Purchase price</label><select id="focusPrice"></select></div>
+          <div><label>Down payment</label><select id="focusDown"></select></div>
+        </div>
+        <p class="note">Total interest and total paid over the full term (principal &amp; interest only &mdash; taxes and insurance not included), for the down payment selected above.</p>
+        <div style="overflow-x:auto;"><div id="detailWrap"></div></div>
+      </section>
+
+      <section class="card" id="sellerCard">
+        <h2>Seller's Perspective &mdash; Interest Earned</h2>
+        <p class="note">What the owner stands to gain by financing instead of taking cash, for the down payment selected above.</p>
+        <div style="overflow-x:auto;"><div id="sellerWrap"></div></div>
+      </section>
+
+      <section class="card" id="compareCard">
+        <h2>Side-by-Side Comparison</h2>
+        <div class="selectors no-print">
+          <div><label>Scenario A &mdash; Price</label><select id="cmpPriceA"></select></div>
+          <div><label>Scenario A &mdash; Down</label><select id="cmpDownA"></select></div>
+          <div><label>Scenario A &mdash; Term</label><select id="cmpTermA"></select></div>
+          <div><label>Scenario A &mdash; Rate</label><select id="cmpRateA"></select></div>
+        </div>
+        <div class="selectors no-print">
+          <div><label>Scenario B &mdash; Price</label><select id="cmpPriceB"></select></div>
+          <div><label>Scenario B &mdash; Down</label><select id="cmpDownB"></select></div>
+          <div><label>Scenario B &mdash; Term</label><select id="cmpTermB"></select></div>
+          <div><label>Scenario B &mdash; Rate</label><select id="cmpRateB"></select></div>
+        </div>
+        <div style="overflow-x:auto;"><div id="compareWrap"></div></div>
+      </section>
+
+      <section class="card" id="scheduleCard">
+        <h2>Amortization Schedule</h2>
+        <div class="selectors no-print">
+          <div><label>Purchase price</label><select id="schPrice"></select></div>
+          <div><label>Down payment</label><select id="schDown"></select></div>
+          <div><label>Term</label><select id="schTerm"></select></div>
+          <div><label>Rate</label><select id="schRate"></select></div>
+          <div><label>Detail</label>
+            <select id="schDetail">
+              <option value="year">Yearly summary</option>
+              <option value="month">Month by month</option>
+            </select>
+          </div>
+        </div>
+        <p class="note" id="scheduleNote"></p>
+        <div style="overflow-x:auto;"><div id="scheduleWrap"></div></div>
+      </section>
+    </div>
+  </div>
+
 </div>
 
+<div class="toast" id="toast"></div>
+
+<!-- ====================================================================== -->
+<!-- ===================== SHARED HELPERS + TAB SWITCH ==================== -->
+<!-- ====================================================================== -->
+<script>
+window.DealUtil = (function () {
+  "use strict";
+  function $(id) { return document.getElementById(id); }
+  function money(n) {
+    return Number(n).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  }
+  function money2(n) {
+    return Number(n).toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+  function parseList(str) {
+    return String(str).split(",").map(function (s) { return parseFloat(s.trim()); })
+      .filter(function (n) { return !isNaN(n) && n >= 0; });
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+  // Monthly amortizing payment for principal P, annual rate (percent), years n.
+  function monthlyPayment(P, annualRatePct, years) {
+    var n = years * 12;
+    if (n <= 0) return 0;
+    var r = (annualRatePct / 100) / 12;
+    if (r === 0) return P / n;
+    return P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+  }
+  function remainingBalance(P, annualRatePct, years, kPayments) {
+    var r = (annualRatePct / 100) / 12;
+    var pmt = monthlyPayment(P, annualRatePct, years);
+    if (r === 0) return Math.max(0, P - pmt * kPayments);
+    var bal = P * Math.pow(1 + r, kPayments) - pmt * (Math.pow(1 + r, kPayments) - 1) / r;
+    return Math.max(0, bal);
+  }
+  function maxPrincipal(budget, annualRatePct, years) {
+    var n = years * 12;
+    if (n <= 0 || budget <= 0) return 0;
+    var r = (annualRatePct / 100) / 12;
+    if (r === 0) return budget * n;
+    return budget * (1 - Math.pow(1 + r, -n)) / r;
+  }
+  // "5 years, 3 months" style from a month count.
+  function monthsToYrMo(months) {
+    var m = Math.round(months);
+    var y = Math.floor(m / 12);
+    var rem = m % 12;
+    var parts = [];
+    if (y > 0) parts.push(y + (y === 1 ? " year" : " years"));
+    if (rem > 0) parts.push(rem + (rem === 1 ? " month" : " months"));
+    if (!parts.length) return "0 months";
+    return parts.join(", ");
+  }
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function () { t.classList.remove("show"); }, 1900);
+  }
+  return {
+    $: $, money: money, money2: money2, num: num, parseList: parseList,
+    escapeHtml: escapeHtml, monthlyPayment: monthlyPayment, remainingBalance: remainingBalance,
+    maxPrincipal: maxPrincipal, monthsToYrMo: monthsToYrMo, toast: toast
+  };
+})();
+
+// --- Tab switching ---
+(function () {
+  var $ = window.DealUtil.$;
+  function show(which) {
+    var deal = which === "deal";
+    $("tab-deal").classList.toggle("active", deal);
+    $("tab-calc").classList.toggle("active", !deal);
+    $("tabBtnDeal").classList.toggle("active", deal);
+    $("tabBtnCalc").classList.toggle("active", !deal);
+  }
+  $("tabBtnDeal").addEventListener("click", function () { show("deal"); });
+  $("tabBtnCalc").addEventListener("click", function () { show("calc"); });
+})();
+</script>
+
+<!-- ====================================================================== -->
+<!-- ===================== DEAL STRUCTURER LOGIC ========================= -->
+<!-- ====================================================================== -->
+<script>
+(function () {
+  "use strict";
+  var U = window.DealUtil, $ = U.$;
+  var money = U.money, money2 = U.money2, num = U.num;
+  var STORAGE_KEY = "propertyDeals_v1";
+
+  var pitchMode = "cash";       // "cash" | "finance"
+  var selectedId = null;        // id of the deal currently loaded into the form
+  var analysis = null;          // last computed analysis, used by the pitch builder
+
+  // ---------- storage ----------
+  function loadDeals() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveDeals(arr) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+  }
+  function uid() { return "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  // ---------- form <-> object ----------
+  function readForm() {
+    return {
+      id: selectedId || uid(),
+      name: $("d_name").value.trim(),
+      basis: num($("d_basis").value),
+      date: $("d_date").value || "",
+      value: $("d_value").value === "" ? null : num($("d_value").value),
+      cashflow: num($("d_cashflow").value),
+      rent: $("d_rent").value === "" ? null : num($("d_rent").value),
+      notes: $("d_notes").value.trim(),
+      offers: $("d_offers").value.trim(),
+      pitchMode: pitchMode,
+      finance: {
+        down: num($("f_down").value),
+        term: num($("f_term").value),
+        rate: num($("f_rate").value),
+        balloon: $("f_balloon").checked,
+        balloonYears: num($("f_balloonYears").value)
+      },
+      updated: Date.now()
+    };
+  }
+  function writeForm(d) {
+    selectedId = d.id;
+    $("d_name").value = d.name || "";
+    $("d_basis").value = d.basis || "";
+    $("d_date").value = d.date || "";
+    $("d_value").value = (d.value === null || d.value === undefined) ? "" : d.value;
+    $("d_cashflow").value = d.cashflow || "";
+    $("d_rent").value = (d.rent === null || d.rent === undefined) ? "" : d.rent;
+    $("d_notes").value = d.notes || "";
+    $("d_offers").value = d.offers || "200000, 215000, 230000";
+    setMode(d.pitchMode || "cash");
+    var f = d.finance || {};
+    $("f_down").value = f.down != null ? f.down : 20000;
+    $("f_term").value = f.term != null ? f.term : 20;
+    $("f_rate").value = f.rate != null ? f.rate : 6;
+    $("f_balloon").checked = !!f.balloon;
+    $("f_balloonYears").value = f.balloonYears != null ? f.balloonYears : 5;
+    $("f_balloonRow").style.display = f.balloon ? "grid" : "none";
+    updateLookupLinks();
+    $("saveState").textContent = "Loaded — " + (d.name || "untitled");
+  }
+  function clearForm() {
+    selectedId = null;
+    ["d_name", "d_basis", "d_date", "d_value", "d_cashflow", "d_rent", "d_notes"].forEach(function (id) { $(id).value = ""; });
+    $("d_offers").value = "200000, 215000, 230000";
+    setMode("cash");
+    $("f_down").value = 20000; $("f_term").value = 20; $("f_rate").value = 6;
+    $("f_balloon").checked = false; $("f_balloonYears").value = 5; $("f_balloonRow").style.display = "none";
+    updateLookupLinks();
+    $("dealResults").style.display = "none";
+    $("saveState").textContent = "New deal";
+    renderList();
+  }
+
+  // ---------- deal list ----------
+  function renderList() {
+    var deals = loadDeals().sort(function (a, b) { return (b.updated || 0) - (a.updated || 0); });
+    var wrap = $("dealList");
+    if (!deals.length) {
+      wrap.innerHTML = "<div class='empty-msg'>No saved deals yet. Fill in a property below and hit “Save deal.”</div>";
+      return;
+    }
+    wrap.innerHTML = deals.map(function (d) {
+      var bits = [];
+      if (d.basis) bits.push("paid " + money(d.basis));
+      if (d.cashflow) bits.push(money(d.cashflow) + "/mo");
+      if (d.value) bits.push("~" + money(d.value) + " today");
+      return "<div class='deal-row" + (d.id === selectedId ? " selected" : "") + "' data-id='" + d.id + "'>" +
+        "<div><div class='name'>" + U.escapeHtml(d.name || "Untitled property") + "</div>" +
+        "<div class='meta'>" + bits.join(" · ") + "</div></div>" +
+        "<div class='btns'>" +
+        "<button class='ghost tiny' data-act='load' data-id='" + d.id + "'>Open</button>" +
+        "<button class='ghost tiny danger' data-act='del' data-id='" + d.id + "'>Delete</button>" +
+        "</div></div>";
+    }).join("");
+
+    Array.prototype.forEach.call(wrap.querySelectorAll("button[data-act]"), function (b) {
+      b.addEventListener("click", function () {
+        var id = b.getAttribute("data-id");
+        if (b.getAttribute("data-act") === "load") {
+          var d = loadDeals().filter(function (x) { return x.id === id; })[0];
+          if (d) { writeForm(d); renderList(); window.scrollTo({ top: 0, behavior: "smooth" }); analyze(); }
+        } else {
+          if (confirm("Delete this deal? This can't be undone.")) {
+            saveDeals(loadDeals().filter(function (x) { return x.id !== id; }));
+            if (id === selectedId) clearForm();
+            renderList();
+            U.toast("Deal deleted");
+          }
+        }
+      });
+    });
+  }
+
+  function saveCurrent() {
+    var d = readForm();
+    if (!d.name && !d.basis) { U.toast("Add at least a name or a price first"); return; }
+    var deals = loadDeals();
+    var idx = deals.map(function (x) { return x.id; }).indexOf(d.id);
+    if (idx >= 0) deals[idx] = d; else deals.push(d);
+    saveDeals(deals);
+    selectedId = d.id;
+    renderList();
+    $("saveState").textContent = "Saved ✓";
+    U.toast("Deal saved");
+  }
+
+  // ---------- lookup links ----------
+  function updateLookupLinks() {
+    var addr = $("d_name").value.trim();
+    var box = $("lookupLinks");
+    if (!addr) { box.innerHTML = "<span class='hint'>Type an address above to get quick lookup links (Zillow, Redfin, county records).</span>"; return; }
+    var q = encodeURIComponent(addr);
+    box.innerHTML =
+      "<a href='https://www.zillow.com/homes/" + q + "_rb/' target='_blank' rel='noopener'>Zillow ↗</a>" +
+      "<a href='https://www.redfin.com/stingray/do/location-autocomplete?location=" + q + "' target='_blank' rel='noopener'>Redfin ↗</a>" +
+      "<a href='https://www.google.com/search?q=" + q + "+property+records' target='_blank' rel='noopener'>County records ↗</a>" +
+      "<a href='https://www.google.com/search?q=" + q + "+sold+price+history' target='_blank' rel='noopener'>Sale history ↗</a>";
+  }
+
+  // ---------- mode toggle ----------
+  function setMode(m) {
+    pitchMode = m;
+    $("modeCash").classList.toggle("active", m === "cash");
+    $("modeFinance").classList.toggle("active", m === "finance");
+    $("financeInputs").style.display = m === "finance" ? "block" : "none";
+  }
+
+  // ---------- analysis ----------
+  function yearsHeld(dateStr) {
+    if (!dateStr) return null;
+    var then = new Date(dateStr);
+    if (isNaN(then.getTime())) return null;
+    var ms = Date.now() - then.getTime();
+    if (ms < 0) return null;
+    return ms / (365.25 * 24 * 3600 * 1000);
+  }
+
+  function analyze() {
+    var d = readForm();
+    var offers = U.parseList(d.offers);
+    if (!offers.length) { U.toast("Enter at least one offer price"); return; }
+    if (!d.cashflow) { U.toast("Enter the seller's monthly cash flow"); return; }
+    offers.sort(function (a, b) { return a - b; });
+
+    var held = yearsHeld(d.date);
+    analysis = { deal: d, offers: offers, held: held };
+
+    renderSnapshot();
+    renderOfferTable();
+    populatePitchSelect();
+    renderPitch();
+
+    $("dealResults").style.display = "block";
+    $("dealResults").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function renderSnapshot() {
+    var d = analysis.deal, held = analysis.held;
+    var annual = d.cashflow * 12;
+    var cards = [];
+    cards.push(stat("Seller paid", money(d.basis)));
+    cards.push(stat("Value today", d.value ? money(d.value) : "—"));
+    if (d.value) {
+      var equity = d.value - d.basis;
+      cards.push(stat("Equity vs. basis", money(equity), equity >= 0 ? "good" : "bad"));
+    }
+    cards.push(stat("Monthly cash flow", money(d.cashflow)));
+    cards.push(stat("Annual cash flow", money(annual)));
+    if (held != null) cards.push(stat("Owned for", held.toFixed(1) + " yrs"));
+    $("snapshot").innerHTML = cards.join("");
+
+    var note = "Cash flow shown is the seller's net (after expenses). ";
+    if (d.value && d.basis) {
+      note += "They're sitting on about " + money(d.value - d.basis) + " of paper gain over what they paid. ";
+    }
+    note += "Every figure below works off these numbers — change them above and re-analyze.";
+    $("snapshotNote").textContent = note;
+  }
+
+  function stat(k, v, cls) {
+    return "<div class='stat'><div class='k'>" + k + "</div><div class='v" + (cls ? " " + cls : "") + "'>" + v + "</div></div>";
+  }
+
+  function renderOfferTable() {
+    var d = analysis.deal, offers = analysis.offers;
+    var financeCol = pitchMode === "finance";
+    var html = "<table class='detail-table'><thead><tr>";
+    html += "<th style='text-align:left'>Your offer</th>";
+    html += "<th>Over their basis</th>";
+    html += "<th>= months of cash flow</th>";
+    if (d.value) html += "<th>vs. value today</th>";
+    if (financeCol) {
+      html += "<th>Seller's monthly check</th>";
+      html += "<th>vs. their " + money(d.cashflow) + " now</th>";
+    }
+    html += "</tr></thead><tbody>";
+
+    offers.forEach(function (O) {
+      var premium = O - d.basis;
+      var months = d.cashflow > 0 ? premium / d.cashflow : 0;
+      html += "<tr>";
+      html += "<td style='text-align:left;font-weight:600'>" + money(O) + "</td>";
+      html += "<td class='cell " + (premium >= 0 ? "good" : "bad") + "'>" + (premium >= 0 ? "+" : "−") + money(Math.abs(premium)) + "</td>";
+      html += "<td class='cell'>" + (premium >= 0 ? U.monthsToYrMo(months) : "—") + "</td>";
+      if (d.value) {
+        var vd = O - d.value;
+        html += "<td class='cell'>" + (vd === 0 ? "at value" : (vd > 0 ? "+" : "−") + money(Math.abs(vd))) + "</td>";
+      }
+      if (financeCol) {
+        var f = d.finance;
+        var principal = O - f.down;
+        var pmt = U.monthlyPayment(principal, f.rate, f.term);
+        html += "<td class='cell'>" + money2(pmt) + "</td>";
+        var diff = pmt - d.cashflow;
+        html += "<td class='cell " + (diff >= 0 ? "good" : "bad") + "'>" + (diff >= 0 ? "+" : "−") + money2(Math.abs(diff)) + "/mo</td>";
+      }
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    $("offerTableWrap").innerHTML = html;
+
+    var note = "“Over their basis” is your offer minus what they paid — their gain. “Months of cash flow” is that gain divided by their monthly net, i.e. how long they'd have to keep landlording to net the same amount.";
+    if (financeCol) note += " The owner-finance columns assume " + money(d.finance.down) + " down, " + d.finance.term + " yr @ " + d.finance.rate + "%.";
+    $("offerTableNote").textContent = note;
+  }
+
+  function populatePitchSelect() {
+    var sel = $("pitchOffer");
+    sel.innerHTML = analysis.offers.map(function (o, i) {
+      return "<option value='" + i + "'>" + money(o) + "</option>";
+    }).join("");
+    // Default to the middle offer.
+    sel.value = String(Math.floor(analysis.offers.length / 2));
+  }
+
+  function renderPitch() {
+    var d = analysis.deal, held = analysis.held;
+    var O = analysis.offers[parseInt($("pitchOffer").value, 10)] || analysis.offers[0];
+    var premium = O - d.basis;
+    var months = d.cashflow > 0 ? premium / d.cashflow : 0;
+    var addr = d.name || "the property";
+
+    var html = "";
+
+    if (pitchMode === "cash") {
+      html += "<div class='pitch-box'><h4>The headline</h4>";
+      if (premium >= 0) {
+        html += "<p>At <span class='big'>" + money(O) + "</span>, you'd walk away with <span class='big'>" + money(premium) +
+          "</span> more than the " + money(d.basis) + " you paid for " + U.escapeHtml(addr) + ".</p>";
+        html += "<p>At your current " + money(d.cashflow) + " a month in cash flow, that gain equals <span class='big'>" +
+          U.monthsToYrMo(months) + "</span> of income — handed to you in one check, with zero tenants, repairs, vacancies, or late-night phone calls from here on out.</p>";
+      } else {
+        html += "<p>My offer of <span class='big'>" + money(O) + "</span> is " + money(Math.abs(premium)) +
+          " under what you paid. Here's why it can still pencil out for you: it ends the monthly grind and hands you " + money(O) + " you can redeploy today.</p>";
+      }
+      html += "</div>";
+
+      if (d.value) {
+        var vd = O - d.value;
+        html += "<div class='pitch-box'><h4>Against today's value</h4><p>";
+        if (vd >= 0) {
+          html += "It's also " + money(vd) + " above the roughly " + money(d.value) + " the place is worth today — you're not leaving money on the table.";
+        } else {
+          html += "Yes, it's " + money(Math.abs(vd)) + " below a full retail sale near " + money(d.value) +
+            " — but a retail sale means agent fees, repairs, showings, and months of uncertainty. This is clean and fast.";
+        }
+        html += "</p></div>";
+      }
+
+      html += "<div class='pitch-box'><h4>The time math</h4><p>";
+      var annual = d.cashflow * 12;
+      html += "You net about " + money(annual) + " a year on this property before anything goes wrong. ";
+      if (premium >= 0) {
+        html += "My offer puts " + U.monthsToYrMo(months) + " of that in your pocket immediately — no waiting, no risk, no work.";
+      } else {
+        html += "Weigh that against the time, risk, and hassle of holding on.";
+      }
+      if (held != null && held >= 0.5) {
+        html += " You've already owned it " + held.toFixed(1) + " years; this is a clean way to lock in the win.";
+      }
+      html += "</p></div>";
+
+    } else {
+      // Owner-finance pitch
+      var f = d.finance;
+      var principal = O - f.down;
+      var pmt = U.monthlyPayment(principal, f.rate, f.term);
+      var totalPayments = pmt * f.term * 12;
+      var interest = totalPayments - principal;
+      var totalReceived = f.down + totalPayments;
+
+      var balloonBits = "";
+      if (f.balloon) {
+        var k = Math.min(f.balloonYears * 12, f.term * 12);
+        var collected = pmt * k;
+        var bal = U.remainingBalance(principal, f.rate, f.term, k);
+        balloonBits = "<div class='pitch-box'><h4>The balloon</h4><p>Payments are figured on a " + f.term +
+          "-year schedule, but the remaining " + money(bal) + " comes to you as a lump sum after " + f.balloonYears +
+          " years — so you collect " + money(collected) + " in payments first, then a final " + money(bal) + " check.</p></div>";
+      }
+
+      html += "<div class='pitch-box'><h4>The headline</h4>";
+      html += "<p>Sell to me at <span class='big'>" + money(O) + "</span> and finance it: you take <span class='big'>" + money(f.down) +
+        "</span> up front, then collect <span class='big'>" + money2(pmt) + "/month</span> for " + f.term + " years at " + f.rate + "%.</p>";
+      var diff = pmt - d.cashflow;
+      if (diff >= 0) {
+        html += "<p>That's " + money2(diff) + " <span class='big'>more</span> per month than the " + money(d.cashflow) +
+          " you net today — except now there are no tenants, no repairs, no vacancies. It's mailbox money, secured by the property itself.</p>";
+      } else {
+        html += "<p>You'd collect " + money2(pmt) + " a month — close to today's " + money(d.cashflow) +
+          " — but completely hands-off, with the property as your security.</p>";
+      }
+      html += "</div>";
+
+      html += "<div class='pitch-box'><h4>What you actually earn</h4><p>Over the full term you'd receive <span class='big'>" +
+        money(totalReceived) + "</span> in total — that's your " + money(O) + " price plus <span class='big'>" + money(interest) +
+        "</span> in interest on top, just for letting me pay over time instead of all at once. A cash sale earns you none of that.</p></div>";
+
+      html += balloonBits;
+      html += "<p class='note'>Full payment grids, total-cost detail, and the amortization schedule for this structure live in the <strong>Payment Calculator</strong> tab.</p>";
+    }
+
+    $("pitchWrap").innerHTML = html;
+
+    // PDF meta header
+    var today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    var meta = "";
+    if (d.name) meta += "<div class='summary-line'>Property: <strong>" + U.escapeHtml(d.name) + "</strong></div>";
+    meta += "<div class='summary-line'>Offer presented: <strong>" + money(O) + "</strong> (" + (pitchMode === "cash" ? "cash / lump-sum" : "owner-financed") + ")</div>";
+    meta += "<div class='summary-line'>Prepared: " + today + "</div>";
+    $("pitchMeta").innerHTML = meta;
+    $("docTitle").textContent = d.name ? "Deal Analysis — " + d.name : "Property Deal Structurer";
+  }
+
+  function pitchPlainText() {
+    // Strip HTML from the pitch boxes for clipboard.
+    var tmp = document.createElement("div");
+    tmp.innerHTML = $("pitchWrap").innerHTML;
+    var blocks = tmp.querySelectorAll(".pitch-box");
+    var out = [];
+    Array.prototype.forEach.call(blocks, function (b) {
+      var h = b.querySelector("h4");
+      if (h) out.push(h.textContent.toUpperCase());
+      Array.prototype.forEach.call(b.querySelectorAll("p"), function (p) { out.push(p.textContent); });
+      out.push("");
+    });
+    return out.join("\n").trim();
+  }
+
+  // ---------- export / import ----------
+  function exportAll() {
+    var data = JSON.stringify(loadDeals(), null, 2);
+    var blob = new Blob([data], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "property-deals-backup.json";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    U.toast("Backup downloaded");
+  }
+  function importAll(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var incoming = JSON.parse(reader.result);
+        if (!Array.isArray(incoming)) throw new Error("bad format");
+        var existing = loadDeals();
+        var byId = {};
+        existing.concat(incoming).forEach(function (d) { if (d && d.id) byId[d.id] = d; });
+        saveDeals(Object.keys(byId).map(function (k) { return byId[k]; }));
+        renderList();
+        U.toast("Imported " + incoming.length + " deal(s)");
+      } catch (e) { U.toast("Couldn't read that file"); }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------- wire up ----------
+  $("d_name").addEventListener("input", updateLookupLinks);
+  $("modeCash").addEventListener("click", function () { setMode("cash"); if (analysis) analyze(); });
+  $("modeFinance").addEventListener("click", function () { setMode("finance"); if (analysis) analyze(); });
+  $("f_balloon").addEventListener("change", function () { $("f_balloonRow").style.display = this.checked ? "grid" : "none"; });
+
+  $("saveDealBtn").addEventListener("click", saveCurrent);
+  $("newDealBtn").addEventListener("click", clearForm);
+  $("analyzeBtn").addEventListener("click", analyze);
+  $("analyzeBtn2").addEventListener("click", analyze);
+  $("pitchOffer").addEventListener("change", renderPitch);
+  $("printPitchBtn").addEventListener("click", function () { window.print(); });
+  $("copyPitchBtn").addEventListener("click", function () {
+    var text = pitchPlainText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { U.toast("Pitch copied"); }, function () { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  });
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); U.toast("Pitch copied"); } catch (e) { U.toast("Copy failed — select manually"); }
+    document.body.removeChild(ta);
+  }
+  $("exportBtn").addEventListener("click", exportAll);
+  $("importBtn").addEventListener("click", function () { $("importFile").click(); });
+  $("importFile").addEventListener("change", function () { if (this.files[0]) importAll(this.files[0]); this.value = ""; });
+
+  // init
+  updateLookupLinks();
+  renderList();
+  $("saveState").textContent = "New deal";
+})();
+</script>
+
+<!-- ====================================================================== -->
+<!-- ============== PAYMENT CALCULATOR (original tool) =================== -->
+<!-- ====================================================================== -->
 <script>
 (function () {
   "use strict";
@@ -369,7 +1055,6 @@
     $(id).addEventListener("change", buildDetailAndSeller);
   });
 
-  // --- formatting helpers ---
   function money(n) {
     return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   }
@@ -382,8 +1067,6 @@
       .filter(function (n) { return !isNaN(n) && n >= 0; });
   }
 
-  // --- finance math ---
-  // Monthly amortizing payment for principal P, annual rate (percent), years n.
   function monthlyPayment(P, annualRatePct, years) {
     var n = years * 12;
     if (n <= 0) return 0;
@@ -391,8 +1074,6 @@
     if (r === 0) return P / n;
     return P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
   }
-
-  // Remaining balance after k monthly payments on a loan amortized for n payments.
   function remainingBalance(P, annualRatePct, years, kPayments) {
     var r = (annualRatePct / 100) / 12;
     var pmt = monthlyPayment(P, annualRatePct, years);
@@ -400,9 +1081,6 @@
     var bal = P * Math.pow(1 + r, kPayments) - pmt * (Math.pow(1 + r, kPayments) - 1) / r;
     return Math.max(0, bal);
   }
-
-  // Largest loan principal whose monthly payment is <= budget, at given rate/term.
-  // (Inverts the amortization formula.)
   function maxPrincipal(budget, annualRatePct, years) {
     var n = years * 12;
     if (n <= 0 || budget <= 0) return 0;
@@ -411,17 +1089,13 @@
     return budget * (1 - Math.pow(1 + r, -n)) / r;
   }
 
-  // Resolve a down-payment entry to a dollar amount for a given price.
-  // Down payments may be entered as dollars or as a percent of the price.
   function downAmountFor(raw, price) {
     var amount = state.downMode === "pct" ? price * (raw / 100) : raw;
     return Math.min(Math.round(amount), price);
   }
-  // Short label for a raw down-payment entry, independent of price.
   function downOptionLabel(raw) {
     return state.downMode === "pct" ? formatRate(raw) : money(raw);
   }
-  // Full label for a specific price + down entry.
   function downFullLabel(raw, price) {
     var amt = downAmountFor(raw, price);
     var pct = price > 0 ? (amt / price * 100) : 0;
@@ -442,32 +1116,26 @@
       return;
     }
 
-    // Sort for tidy display
     prices.sort(function (a, b) { return a - b; });
     downs.sort(function (a, b) { return a - b; });
     terms.sort(function (a, b) { return a - b; });
     rates.sort(function (a, b) { return a - b; });
 
     var dealName = $("dealName").value.trim();
+    $("docTitle").textContent = dealName ? "Owner Financing Analysis — " + dealName : "Property Deal Structurer";
 
-    // Update titles
-    $("docTitle").textContent = dealName ? "Owner Financing Analysis — " + dealName : "Owner Financing Loan Analysis";
-
-    // ---- PDF meta block ----
     var today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     var metaRows = "";
     if (dealName) metaRows += "<div class='summary-line'>Property: <strong>" + escapeHtml(dealName) + "</strong></div>";
     metaRows += "<div class='summary-line'>Prepared: " + today + "</div>";
     $("pdfMeta").innerHTML = metaRows;
 
-    // ---- Stash state first so the helpers below can resolve down payments ----
     state = {
       prices: prices, budget: budget, downs: downs, downMode: downMode,
       terms: terms, rates: rates,
       useBalloon: useBalloon, balloonYears: balloonYears
     };
 
-    // ---- Summary ----
     var summary = "";
     summary += "<div class='summary-line'>Purchase prices compared: <strong>" +
       prices.map(money).join(", ") + "</strong></div>";
@@ -489,10 +1157,8 @@
     buildSchedule();
 
     $("results").style.display = "block";
-    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // ---- One monthly-payment grid (Term x Rate) for each price + down payment ----
   function buildGrids() {
     var s = state;
     var html = "";
@@ -527,10 +1193,6 @@
     $("matrixNote").innerHTML = note;
   }
 
-  // ---- Max affordable purchase price (Term x Rate) per down payment ----
-  // Works backwards from the monthly max; the purchase-price list is not used here
-  // because price is the answer. A $ down adds to the affordable loan; a % down
-  // scales it up (since the down grows with the price).
   function buildMaxPrice() {
     var s = state;
     $("maxPmtEcho").textContent = money(s.budget);
@@ -563,7 +1225,6 @@
     $("maxPriceWrap").innerHTML = html;
   }
 
-  // Rebuild the Total Cost Detail and Seller tables for the focus price + down.
   function buildDetailAndSeller() {
     if (!state) return;
     var price = valFromSel("focusPrice", state.prices);
@@ -610,7 +1271,6 @@
     $("detailWrap").innerHTML = html;
   }
 
-  // ---- Seller's perspective: interest earned / total received ----
   function buildSeller(price, down, principal, terms, rates, useBalloon, balloonYears) {
     var html = "<table class='detail-table'><thead><tr>";
     html += "<th style='text-align:left'>Scenario</th>";
@@ -634,7 +1294,6 @@
           var k = Math.min(balloonYears * 12, term * 12);
           var collected = pmt * k;
           var bal = remainingBalance(principal, rate, term, k);
-          // Interest earned by the balloon date = payments collected + balloon - principal financed.
           var interest = collected + bal - principal;
           html += "<td>" + money(collected) + "</td>";
           html += "<td>" + money(bal) + "</td>";
@@ -642,7 +1301,7 @@
         } else {
           var totalPayments = pmt * term * 12;
           var interestFull = totalPayments - principal;
-          var totalReceived = down + totalPayments; // down + every monthly payment
+          var totalReceived = down + totalPayments;
           html += "<td>" + money(interestFull) + "</td>";
           html += "<td>" + money(totalReceived) + "</td>";
         }
@@ -653,7 +1312,6 @@
     $("sellerWrap").innerHTML = html;
   }
 
-  // ---- Populate the price/down/term/rate dropdowns from the current scenario ----
   function populateSelectors() {
     var priceOpts = state.prices.map(function (p, i) {
       return "<option value='" + i + "'>" + money(p) + "</option>";
@@ -675,8 +1333,6 @@
     fillSelect("focusPrice", priceOpts, 0);
     fillSelect("focusDown", downOpts, 0);
 
-    // Side-by-side defaults: A = lowest price / least down / shortest term,
-    // B = highest price / most down / longest term.
     fillSelect("cmpPriceA", priceOpts, 0);
     fillSelect("cmpDownA", downOpts, 0);
     fillSelect("cmpTermA", termOpts, state.terms[0]);
@@ -692,18 +1348,15 @@
     fillSelect("schRate", rateOpts, midRate);
   }
 
-  // Read an index-valued dropdown (price) back to its number.
   function valFromSel(id, arr) {
     return arr[parseInt($(id).value, 10)] || arr[0];
   }
-
   function fillSelect(id, optsHtml, value) {
     var el = $(id);
     el.innerHTML = optsHtml;
     el.value = String(value);
   }
 
-  // ---- Side-by-side comparison of two chosen scenarios ----
   function buildComparison() {
     if (!state) return;
     var priceA = valFromSel("cmpPriceA", state.prices);
@@ -762,15 +1415,12 @@
     $("compareWrap").innerHTML = html;
   }
 
-  // Resolve a down-payment dropdown (stores an index) to a dollar amount,
-  // using the price chosen in that same section.
   function downFromSel(id, price) {
     var raw = state.downs[parseInt($(id).value, 10)];
     if (raw === undefined) raw = state.downs[0];
     return downAmountFor(raw, price);
   }
 
-  // Build a fully-described scenario object for the chosen price, down, term & rate.
   function scenario(price, down, term, rate) {
     var P = price - down;
     var pmt = monthlyPayment(P, rate, term);
@@ -790,7 +1440,6 @@
     return s;
   }
 
-  // ---- Full amortization schedule for one chosen scenario ----
   function buildSchedule() {
     if (!state) return;
     var price = valFromSel("schPrice", state.prices);
@@ -803,7 +1452,6 @@
     var pmt = monthlyPayment(P, rate, term);
     var totalMonths = term * 12;
 
-    // If a balloon applies, the schedule stops at the balloon date.
     var balloonMonth = state.useBalloon ? Math.min(state.balloonYears * 12, totalMonths) : 0;
     var stopMonth = balloonMonth || totalMonths;
 
@@ -829,7 +1477,6 @@
           "</td><td>" + money2(interest) + "</td><td>" + money2(cumInterest) + "</td><td>" + money2(balance) + "</td></tr>";
       }
     } else {
-      // Yearly summary: accumulate within each 12-month block.
       var yearInterest = 0, yearPrincipal = 0;
       for (var mm = 1; mm <= stopMonth; mm++) {
         var int2 = balance * r;
@@ -848,7 +1495,6 @@
       }
     }
 
-    // Balloon payoff row.
     if (state.useBalloon && balloonMonth < totalMonths && balance > 0) {
       var span = byMonth ? 5 : 4;
       rows += "<tr style='font-weight:600;background:var(--warn-bg)'><td colspan='" + span +
@@ -865,14 +1511,12 @@
   function formatRate(rate) {
     return (Number.isInteger(rate) ? rate : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")) + "%";
   }
-
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, function (c) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
     });
   }
 
-  // Run once on load so the page isn't empty.
   calculate();
 })();
 </script>
