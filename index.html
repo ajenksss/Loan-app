@@ -161,22 +161,23 @@
         <input type="text" id="dealName" placeholder="123 Main St" />
       </div>
       <div>
-        <label>Purchase price</label>
+        <label>Purchase price <span class="hint">(asking price)</span></label>
         <input type="number" id="price" value="200000" min="0" step="1000" />
       </div>
       <div>
-        <label>Down payment</label>
+        <label>Your max monthly payment <span class="hint">(your true limit)</span></label>
+        <input type="number" id="budget" value="1500" min="0" step="50" />
+      </div>
+      <div>
+        <label>Down payments to compare
+          <span class="hint">(comma-separated)</span></label>
         <div class="down-row">
-          <input type="number" id="down" value="20000" min="0" step="500" />
+          <input type="text" id="downs" value="0, 10000, 20000, 40000" />
           <div class="toggle">
             <button type="button" id="downDollar" class="active">$</button>
             <button type="button" id="downPct">%</button>
           </div>
         </div>
-      </div>
-      <div>
-        <label>Your max monthly payment <span class="hint">(your true limit)</span></label>
-        <input type="number" id="budget" value="1500" min="0" step="50" />
       </div>
       <div>
         <label>Loan terms to compare <span class="hint">(years, comma-separated)</span></label>
@@ -218,24 +219,38 @@
 
     <section class="card">
       <h2>Monthly Payment by Term &amp; Rate</h2>
-      <div id="matrixWrap" style="overflow-x:auto;"></div>
+      <p class="note">One grid per down payment. Each cell is the monthly principal &amp; interest payment. <strong>Green</strong> cells fall at or under your max monthly payment; <strong>red</strong> cells are over it.</p>
       <div class="legend">
-        <span><span class="swatch good"></span> Within your budget</span>
-        <span><span class="swatch bad"></span> Over your budget</span>
+        <span><span class="swatch good"></span> At or under your max</span>
+        <span><span class="swatch bad"></span> Over your max</span>
       </div>
+      <div id="gridsWrap"></div>
       <p class="note" id="matrixNote"></p>
+    </section>
+
+    <!-- ===== Max affordable price ===== -->
+    <section class="card" id="maxPriceCard">
+      <h2>Your True Limit &mdash; Max Purchase Price You Can Afford</h2>
+      <p class="note">Working backwards from your max monthly payment of <strong id="maxPmtEcho"></strong>: for each down payment, term, and rate, this is the highest purchase price whose payment still fits your limit. This is the number to keep in your head at the negotiating table.</p>
+      <div id="maxPriceWrap"></div>
     </section>
 
     <section class="card" id="detailCard">
       <h2>Total Cost Detail</h2>
-      <p class="note">Total interest and total paid over the full term (principal &amp; interest only &mdash; taxes and insurance not included). Useful for understanding the real cost of each rate.</p>
+      <div class="selectors no-print">
+        <div>
+          <label>Down payment</label>
+          <select id="focusDown"></select>
+        </div>
+      </div>
+      <p class="note">Total interest and total paid over the full term (principal &amp; interest only &mdash; taxes and insurance not included), for the down payment selected above.</p>
       <div style="overflow-x:auto;"><div id="detailWrap"></div></div>
     </section>
 
     <!-- ===== Seller's perspective ===== -->
     <section class="card" id="sellerCard">
       <h2>Seller's Perspective &mdash; Interest Earned</h2>
-      <p class="note">What the owner stands to gain by financing instead of taking cash. Total received is the down payment plus every monthly payment; interest earned is the profit above the sale price. Use this to show the seller why financing beats a cash sale.</p>
+      <p class="note">What the owner stands to gain by financing instead of taking cash, for the down payment selected above. Total received is the down payment plus every monthly payment; interest earned is the profit above the sale price. Use this to show the seller why financing beats a cash sale.</p>
       <div style="overflow-x:auto;"><div id="sellerWrap"></div></div>
     </section>
 
@@ -244,12 +259,20 @@
       <h2>Side-by-Side Comparison</h2>
       <div class="selectors no-print">
         <div>
+          <label>Scenario A &mdash; Down</label>
+          <select id="cmpDownA"></select>
+        </div>
+        <div>
           <label>Scenario A &mdash; Term</label>
           <select id="cmpTermA"></select>
         </div>
         <div>
           <label>Scenario A &mdash; Rate</label>
           <select id="cmpRateA"></select>
+        </div>
+        <div>
+          <label>Scenario B &mdash; Down</label>
+          <select id="cmpDownB"></select>
         </div>
         <div>
           <label>Scenario B &mdash; Term</label>
@@ -267,6 +290,10 @@
     <section class="card" id="scheduleCard">
       <h2>Amortization Schedule</h2>
       <div class="selectors no-print">
+        <div>
+          <label>Down payment</label>
+          <select id="schDown"></select>
+        </div>
         <div>
           <label>Term</label>
           <select id="schTerm"></select>
@@ -314,12 +341,13 @@
   $("calcBtn").addEventListener("click", calculate);
   $("pdfBtn").addEventListener("click", function () { window.print(); });
 
-  ["cmpTermA", "cmpRateA", "cmpTermB", "cmpRateB"].forEach(function (id) {
+  ["cmpDownA", "cmpTermA", "cmpRateA", "cmpDownB", "cmpTermB", "cmpRateB"].forEach(function (id) {
     $(id).addEventListener("change", buildComparison);
   });
-  ["schTerm", "schRate", "schDetail"].forEach(function (id) {
+  ["schDown", "schTerm", "schRate", "schDetail"].forEach(function (id) {
     $(id).addEventListener("change", buildSchedule);
   });
+  $("focusDown").addEventListener("change", buildDetailAndSeller);
 
   // --- formatting helpers ---
   function money(n) {
@@ -353,21 +381,43 @@
     return Math.max(0, bal);
   }
 
+  // Largest loan principal whose monthly payment is <= budget, at given rate/term.
+  // (Inverts the amortization formula.)
+  function maxPrincipal(budget, annualRatePct, years) {
+    var n = years * 12;
+    if (n <= 0 || budget <= 0) return 0;
+    var r = (annualRatePct / 100) / 12;
+    if (r === 0) return budget * n;
+    return budget * (1 - Math.pow(1 + r, -n)) / r;
+  }
+
+  // Turn the down-payment list + $/% mode into sorted, de-duped dollar amounts.
+  function resolveDowns(price, list, mode) {
+    var seen = {};
+    var out = [];
+    list.forEach(function (v) {
+      var amount = mode === "pct" ? price * (v / 100) : v;
+      amount = Math.min(Math.round(amount), price);
+      if (seen[amount]) return;
+      seen[amount] = true;
+      var pct = price > 0 ? (amount / price * 100) : 0;
+      out.push({ amount: amount, pct: pct, label: money(amount) + " (" + pct.toFixed(0) + "%)" });
+    });
+    out.sort(function (a, b) { return a.amount - b.amount; });
+    return out;
+  }
+
   function calculate() {
     var price = parseFloat($("price").value) || 0;
-    var downRaw = parseFloat($("down").value) || 0;
-    var down = downMode === "pct" ? price * (downRaw / 100) : downRaw;
-    if (down > price) down = price;
-    var principal = price - down;
-
     var budget = parseFloat($("budget").value) || 0;
+    var downs = resolveDowns(price, parseList($("downs").value), downMode);
     var terms = parseList($("terms").value);
     var rates = parseList($("rates").value);
     var useBalloon = $("useBalloon").checked;
     var balloonYears = parseInt($("balloonYears").value, 10) || 0;
 
-    if (!terms.length || !rates.length || principal <= 0) {
-      alert("Please enter a purchase price greater than the down payment, plus at least one term and one rate.");
+    if (!terms.length || !rates.length || price <= 0 || !downs.length) {
+      alert("Please enter a purchase price, at least one down payment, one term, and one rate.");
       return;
     }
 
@@ -388,12 +438,11 @@
     $("pdfMeta").innerHTML = metaRows;
 
     // ---- Summary ----
-    var dpPct = price > 0 ? (down / price * 100) : 0;
     var summary = "";
     summary += "<div class='summary-line'>Purchase price: <strong>" + money(price) + "</strong></div>";
-    summary += "<div class='summary-line'>Down payment: <strong>" + money(down) + "</strong> (" + dpPct.toFixed(1) + "%)</div>";
-    summary += "<div class='summary-line'>Amount financed: <strong>" + money(principal) + "</strong></div>";
     summary += "<div class='summary-line'>Your max monthly payment: <strong>" + money(budget) + "</strong></div>";
+    summary += "<div class='summary-line'>Down payments compared: <strong>" +
+      downs.map(function (d) { return d.label; }).join(", ") + "</strong></div>";
     if (useBalloon) {
       summary += "<div class='summary-line'>Structure: <strong>Balloon</strong> &mdash; payments amortized over each term, balance due after " + balloonYears + " year(s)</div>";
     } else {
@@ -401,49 +450,85 @@
     }
     $("summary").innerHTML = summary;
 
-    // ---- Matrix ----
-    var html = "<table><thead><tr><th class='corner'>Term \\ Rate</th>";
-    rates.forEach(function (rate) {
-      html += "<th>" + formatRate(rate) + "</th>";
-    });
-    html += "</tr></thead><tbody>";
-
-    terms.forEach(function (term) {
-      html += "<tr><td class='rowhead'>" + term + " yr</td>";
-      rates.forEach(function (rate) {
-        var pmt = monthlyPayment(principal, rate, term);
-        var cls = budget > 0 ? (pmt <= budget ? "good" : "bad") : "";
-        html += "<td class='cell " + cls + "'>" + money2(pmt) + "</td>";
-      });
-      html += "</tr>";
-    });
-    html += "</tbody></table>";
-    $("matrixWrap").innerHTML = html;
-
-    var note = "Figures are principal &amp; interest only. Property taxes, insurance, and any HOA dues are not included.";
-    if (useBalloon) {
-      note += " The monthly amount is based on amortizing over each term, but you would owe the remaining balance as a lump sum after " + balloonYears + " year(s) — see the detail table below.";
-    }
-    $("matrixNote").innerHTML = note;
-
-    // ---- Detail table ----
-    buildDetail(principal, terms, rates, useBalloon, balloonYears);
-
-    // ---- Seller's perspective ----
-    buildSeller(price, down, principal, terms, rates, useBalloon, balloonYears);
-
-    // ---- Stash state for the interactive sections, then build them ----
+    // ---- Stash state, then build every section ----
     state = {
-      price: price, down: down, principal: principal,
+      price: price, budget: budget, downs: downs,
       terms: terms, rates: rates,
       useBalloon: useBalloon, balloonYears: balloonYears
     };
+
+    buildGrids();
+    buildMaxPrice();
     populateSelectors();
+    buildDetailAndSeller();
     buildComparison();
     buildSchedule();
 
     $("results").style.display = "block";
     $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ---- One monthly-payment grid (Term x Rate) per down payment ----
+  function buildGrids() {
+    var s = state;
+    var html = "";
+    s.downs.forEach(function (d) {
+      var principal = s.price - d.amount;
+      html += "<h3 style='margin:18px 0 6px;font-size:15px;'>Down payment " + d.label +
+        " &mdash; financing " + money(principal) + "</h3>";
+      html += "<table><thead><tr><th class='corner'>Term \\ Rate</th>";
+      s.rates.forEach(function (rate) { html += "<th>" + formatRate(rate) + "</th>"; });
+      html += "</tr></thead><tbody>";
+      s.terms.forEach(function (term) {
+        html += "<tr><td class='rowhead'>" + term + " yr</td>";
+        s.rates.forEach(function (rate) {
+          var pmt = monthlyPayment(principal, rate, term);
+          var cls = s.budget > 0 ? (pmt <= s.budget ? "good" : "bad") : "";
+          html += "<td class='cell " + cls + "'>" + money2(pmt) + "</td>";
+        });
+        html += "</tr>";
+      });
+      html += "</tbody></table>";
+    });
+    $("gridsWrap").innerHTML = html;
+
+    var note = "Figures are principal &amp; interest only. Property taxes, insurance, and any HOA dues are not included.";
+    if (s.useBalloon) {
+      note += " The monthly amount is based on amortizing over each term, but you would owe the remaining balance as a lump sum after " + s.balloonYears + " year(s) — see the schedule below.";
+    }
+    $("matrixNote").innerHTML = note;
+  }
+
+  // ---- Max affordable purchase price (Term x Rate) per down payment ----
+  function buildMaxPrice() {
+    var s = state;
+    $("maxPmtEcho").textContent = money(s.budget);
+    var html = "";
+    s.downs.forEach(function (d) {
+      html += "<h3 style='margin:18px 0 6px;font-size:15px;'>With " + money(d.amount) + " cash down</h3>";
+      html += "<table><thead><tr><th class='corner'>Term \\ Rate</th>";
+      s.rates.forEach(function (rate) { html += "<th>" + formatRate(rate) + "</th>"; });
+      html += "</tr></thead><tbody>";
+      s.terms.forEach(function (term) {
+        html += "<tr><td class='rowhead'>" + term + " yr</td>";
+        s.rates.forEach(function (rate) {
+          var maxPrice = maxPrincipal(s.budget, rate, term) + d.amount;
+          html += "<td class='cell'>" + money(maxPrice) + "</td>";
+        });
+        html += "</tr>";
+      });
+      html += "</tbody></table>";
+    });
+    $("maxPriceWrap").innerHTML = html;
+  }
+
+  // Rebuild the Total Cost Detail and Seller tables for the focus down payment.
+  function buildDetailAndSeller() {
+    if (!state) return;
+    var d = state.downs[parseInt($("focusDown").value, 10)] || state.downs[0];
+    var principal = state.price - d.amount;
+    buildDetail(principal, state.terms, state.rates, state.useBalloon, state.balloonYears);
+    buildSeller(state.price, d.amount, principal, state.terms, state.rates, state.useBalloon, state.balloonYears);
   }
 
   function buildDetail(principal, terms, rates, useBalloon, balloonYears) {
@@ -526,8 +611,11 @@
     $("sellerWrap").innerHTML = html;
   }
 
-  // ---- Populate the term/rate dropdowns from the current scenario ----
+  // ---- Populate the down/term/rate dropdowns from the current scenario ----
   function populateSelectors() {
+    var downOpts = state.downs.map(function (d, i) {
+      return "<option value='" + i + "'>" + d.label + "</option>";
+    }).join("");
     var termOpts = state.terms.map(function (t) {
       return "<option value='" + t + "'>" + t + " yr</option>";
     }).join("");
@@ -535,13 +623,20 @@
       return "<option value='" + r + "'>" + formatRate(r) + "</option>";
     }).join("");
 
-    // Sensible defaults: A = shortest term / a mid rate, B = longest term / same rate.
-    fillSelect("cmpTermA", termOpts, state.terms[0]);
-    fillSelect("cmpTermB", termOpts, state.terms[state.terms.length - 1]);
+    var lastDown = state.downs.length - 1;
     var midRate = state.rates[Math.floor(state.rates.length / 2)];
+
+    fillSelect("focusDown", downOpts, 0);
+
+    // Side-by-side defaults: A = least down / shortest term, B = most down / longest term.
+    fillSelect("cmpDownA", downOpts, 0);
+    fillSelect("cmpTermA", termOpts, state.terms[0]);
     fillSelect("cmpRateA", rateOpts, midRate);
+    fillSelect("cmpDownB", downOpts, lastDown);
+    fillSelect("cmpTermB", termOpts, state.terms[state.terms.length - 1]);
     fillSelect("cmpRateB", rateOpts, midRate);
 
+    fillSelect("schDown", downOpts, 0);
     fillSelect("schTerm", termOpts, state.terms[state.terms.length - 1]);
     fillSelect("schRate", rateOpts, midRate);
   }
@@ -555,8 +650,8 @@
   // ---- Side-by-side comparison of two chosen scenarios ----
   function buildComparison() {
     if (!state) return;
-    var a = scenario(parseFloat($("cmpTermA").value), parseFloat($("cmpRateA").value));
-    var b = scenario(parseFloat($("cmpTermB").value), parseFloat($("cmpRateB").value));
+    var a = scenario(downFromSel("cmpDownA"), parseFloat($("cmpTermA").value), parseFloat($("cmpRateA").value));
+    var b = scenario(downFromSel("cmpDownB"), parseFloat($("cmpTermB").value), parseFloat($("cmpRateB").value));
 
     function row(label, va, vb, diffFn) {
       var diff = diffFn ? "<td class='diff'>" + diffFn(va.raw, vb.raw) + "</td>" : "<td class='diff'></td>";
@@ -580,8 +675,10 @@
     html += "<th class='scenario-head'>Difference<br><span class='hint'>A &minus; B</span></th>";
     html += "</tr></thead><tbody>";
 
+    html += row("Down payment",
+      { txt: money(a.down), raw: a.down }, { txt: money(b.down), raw: b.down }, deltaWhole);
     html += row("Amount financed",
-      { txt: money(a.principal), raw: a.principal }, { txt: money(b.principal), raw: b.principal });
+      { txt: money(a.principal), raw: a.principal }, { txt: money(b.principal), raw: b.principal }, deltaWhole);
     html += row("Monthly payment (P&amp;I)",
       { txt: money2(a.pmt), raw: a.pmt }, { txt: money2(b.pmt), raw: b.pmt }, delta);
 
@@ -605,14 +702,20 @@
     $("compareWrap").innerHTML = html;
   }
 
-  // Build a fully-described scenario object for the chosen term & rate.
-  function scenario(term, rate) {
-    var P = state.principal;
+  // Resolve a down-payment dropdown (stores an index) to its dollar amount.
+  function downFromSel(id) {
+    var d = state.downs[parseInt($(id).value, 10)] || state.downs[0];
+    return d.amount;
+  }
+
+  // Build a fully-described scenario object for the chosen down, term & rate.
+  function scenario(down, term, rate) {
+    var P = state.price - down;
     var pmt = monthlyPayment(P, rate, term);
     var totalPaid = pmt * term * 12;
     var s = {
-      term: term, rate: rate, principal: P, pmt: pmt,
-      label: term + " yr @ " + formatRate(rate),
+      down: down, term: term, rate: rate, principal: P, pmt: pmt,
+      label: money(down) + " down, " + term + " yr @ " + formatRate(rate),
       totalPaid: totalPaid,
       totalInterest: totalPaid - P
     };
@@ -628,10 +731,11 @@
   // ---- Full amortization schedule for one chosen scenario ----
   function buildSchedule() {
     if (!state) return;
+    var down = downFromSel("schDown");
     var term = parseFloat($("schTerm").value);
     var rate = parseFloat($("schRate").value);
     var byMonth = $("schDetail").value === "month";
-    var P = state.principal;
+    var P = state.price - down;
     var r = (rate / 100) / 12;
     var pmt = monthlyPayment(P, rate, term);
     var totalMonths = term * 12;
@@ -640,7 +744,7 @@
     var balloonMonth = state.useBalloon ? Math.min(state.balloonYears * 12, totalMonths) : 0;
     var stopMonth = balloonMonth || totalMonths;
 
-    var note = "Schedule for " + term + " yr @ " + formatRate(rate) +
+    var note = "Schedule for " + money(down) + " down, " + term + " yr @ " + formatRate(rate) +
       " on " + money(P) + " financed. Monthly payment " + money2(pmt) + ".";
     if (state.useBalloon && balloonMonth < totalMonths) {
       note += " Payments are amortized over " + term + " years, but the loan is paid off with a balloon at year " + state.balloonYears + ".";
