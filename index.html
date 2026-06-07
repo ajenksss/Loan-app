@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Owner Financing Loan Calculator</title>
+<style>
+  :root {
+    --ink: #1a2330;
+    --muted: #5c6b7a;
+    --line: #d8dee6;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --accent: #2c5f8a;
+    --good: #1f8a4c;
+    --good-bg: #e4f6ec;
+    --bad: #c0392b;
+    --bad-bg: #fdecea;
+    --warn-bg: #fff6e0;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  header.page-head {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 14px;
+    margin-bottom: 24px;
+  }
+  header.page-head h1 { margin: 0 0 4px; font-size: 26px; }
+  header.page-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+  }
+  .card h2 {
+    margin: 0 0 16px;
+    font-size: 17px;
+    color: var(--accent);
+    letter-spacing: .3px;
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-size: 15px;
+    font-family: inherit;
+  }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(44,95,138,.12); }
+
+  .down-row { display: flex; gap: 8px; }
+  .down-row input { flex: 1; }
+  .toggle {
+    display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden;
+  }
+  .toggle button {
+    border: none; background: #fff; padding: 0 12px; cursor: pointer; font-size: 14px; color: var(--muted);
+  }
+  .toggle button.active { background: var(--accent); color: #fff; }
+
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .check input { width: auto; }
+  .check label { margin: 0; font-weight: 500; }
+
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  button.primary {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 12px 22px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  button.primary:hover { background: #234c6e; }
+  button.ghost {
+    background: #fff; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 8px; padding: 12px 22px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+
+  .summary-line { font-size: 15px; margin: 0 0 6px; }
+  .summary-line strong { font-size: 18px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 14px; }
+  th, td { padding: 9px 10px; text-align: right; border: 1px solid var(--line); }
+  th { background: #eef2f6; font-weight: 600; }
+  th.corner, td.rowhead { text-align: left; background: #eef2f6; font-weight: 600; }
+  td.cell { font-variant-numeric: tabular-nums; }
+  td.cell.good { background: var(--good-bg); color: var(--good); font-weight: 600; }
+  td.cell.bad { background: var(--bad-bg); color: var(--bad); }
+
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; margin-top: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); display: inline-block; }
+  .swatch.good { background: var(--good-bg); }
+  .swatch.bad { background: var(--bad-bg); }
+
+  .detail-table td:first-child { text-align: left; }
+
+  .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+  .pdf-only { display: none; }
+
+  /* ---------- Print / PDF styling ---------- */
+  @media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .pdf-only { display: block; }
+    .wrap { max-width: none; padding: 0; }
+    .card { border: none; padding: 0 0 18px; margin-bottom: 18px; page-break-inside: avoid; }
+    .card h2 { color: #000; border-bottom: 1px solid #999; padding-bottom: 4px; }
+    header.page-head { border-color: #000; }
+    th { background: #e8e8e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    td.cell.good { background: var(--good-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    td.cell.bad { background: var(--bad-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th.corner, td.rowhead { background: #eef2f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <h1 id="docTitle">Owner Financing Loan Analysis</h1>
+    <p id="docSub">Monthly payment comparison across terms &amp; interest rates</p>
+  </header>
+
+  <!-- ============ INPUTS ============ -->
+  <section class="card no-print">
+    <h2>Deal Inputs</h2>
+    <div class="grid">
+      <div>
+        <label>Property / Deal name <span class="hint">(shows on PDF)</span></label>
+        <input type="text" id="dealName" placeholder="123 Main St" />
+      </div>
+      <div>
+        <label>Purchase price</label>
+        <input type="number" id="price" value="200000" min="0" step="1000" />
+      </div>
+      <div>
+        <label>Down payment</label>
+        <div class="down-row">
+          <input type="number" id="down" value="20000" min="0" step="500" />
+          <div class="toggle">
+            <button type="button" id="downDollar" class="active">$</button>
+            <button type="button" id="downPct">%</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label>Your max monthly payment <span class="hint">(your true limit)</span></label>
+        <input type="number" id="budget" value="1500" min="0" step="50" />
+      </div>
+      <div>
+        <label>Loan terms to compare <span class="hint">(years, comma-separated)</span></label>
+        <input type="text" id="terms" value="10, 15, 20, 25, 30" />
+      </div>
+      <div>
+        <label>Interest rates to compare <span class="hint">(%, comma-separated)</span></label>
+        <input type="text" id="rates" value="0, 3, 4, 5, 6, 7, 8" />
+      </div>
+    </div>
+
+    <div class="check">
+      <input type="checkbox" id="useBalloon" />
+      <label for="useBalloon">Balloon payment &mdash; amortize over the term above but pay off the remaining balance after a set number of years</label>
+    </div>
+    <div class="grid" id="balloonRow" style="margin-top:12px; display:none;">
+      <div>
+        <label>Balloon due after <span class="hint">(years)</span></label>
+        <input type="number" id="balloonYears" value="5" min="1" step="1" />
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top:18px;">
+      <button class="primary" id="calcBtn">Calculate</button>
+      <button class="ghost no-print" id="pdfBtn">Save as PDF / Print</button>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <div id="results" style="display:none;">
+
+    <!-- PDF header info -->
+    <section class="card pdf-only" id="pdfMeta"></section>
+
+    <section class="card">
+      <h2>Loan Summary</h2>
+      <div id="summary"></div>
+    </section>
+
+    <section class="card">
+      <h2>Monthly Payment by Term &amp; Rate</h2>
+      <div id="matrixWrap" style="overflow-x:auto;"></div>
+      <div class="legend">
+        <span><span class="swatch good"></span> Within your budget</span>
+        <span><span class="swatch bad"></span> Over your budget</span>
+      </div>
+      <p class="note" id="matrixNote"></p>
+    </section>
+
+    <section class="card" id="detailCard">
+      <h2>Total Cost Detail</h2>
+      <p class="note">Total interest and total paid over the full term (principal &amp; interest only &mdash; taxes and insurance not included). Useful for understanding the real cost of each rate.</p>
+      <div style="overflow-x:auto;"><div id="detailWrap"></div></div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var downMode = "dollar"; // or "pct"
+
+  $("downDollar").addEventListener("click", function () { setDownMode("dollar"); });
+  $("downPct").addEventListener("click", function () { setDownMode("pct"); });
+  function setDownMode(mode) {
+    downMode = mode;
+    $("downDollar").classList.toggle("active", mode === "dollar");
+    $("downPct").classList.toggle("active", mode === "pct");
+  }
+
+  $("useBalloon").addEventListener("change", function () {
+    $("balloonRow").style.display = this.checked ? "grid" : "none";
+  });
+
+  $("calcBtn").addEventListener("click", calculate);
+  $("pdfBtn").addEventListener("click", function () { window.print(); });
+
+  // --- formatting helpers ---
+  function money(n) {
+    return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  }
+  function money2(n) {
+    return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function parseList(str) {
+    return str.split(",")
+      .map(function (s) { return parseFloat(s.trim()); })
+      .filter(function (n) { return !isNaN(n) && n >= 0; });
+  }
+
+  // --- finance math ---
+  // Monthly amortizing payment for principal P, annual rate (percent), years n.
+  function monthlyPayment(P, annualRatePct, years) {
+    var n = years * 12;
+    if (n <= 0) return 0;
+    var r = (annualRatePct / 100) / 12;
+    if (r === 0) return P / n;
+    return P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+  }
+
+  // Remaining balance after k monthly payments on a loan amortized for n payments.
+  function remainingBalance(P, annualRatePct, years, kPayments) {
+    var r = (annualRatePct / 100) / 12;
+    var pmt = monthlyPayment(P, annualRatePct, years);
+    if (r === 0) return Math.max(0, P - pmt * kPayments);
+    var bal = P * Math.pow(1 + r, kPayments) - pmt * (Math.pow(1 + r, kPayments) - 1) / r;
+    return Math.max(0, bal);
+  }
+
+  function calculate() {
+    var price = parseFloat($("price").value) || 0;
+    var downRaw = parseFloat($("down").value) || 0;
+    var down = downMode === "pct" ? price * (downRaw / 100) : downRaw;
+    if (down > price) down = price;
+    var principal = price - down;
+
+    var budget = parseFloat($("budget").value) || 0;
+    var terms = parseList($("terms").value);
+    var rates = parseList($("rates").value);
+    var useBalloon = $("useBalloon").checked;
+    var balloonYears = parseInt($("balloonYears").value, 10) || 0;
+
+    if (!terms.length || !rates.length || principal <= 0) {
+      alert("Please enter a purchase price greater than the down payment, plus at least one term and one rate.");
+      return;
+    }
+
+    // Sort for tidy display
+    terms.sort(function (a, b) { return a - b; });
+    rates.sort(function (a, b) { return a - b; });
+
+    var dealName = $("dealName").value.trim();
+
+    // Update titles
+    $("docTitle").textContent = dealName ? "Owner Financing Analysis — " + dealName : "Owner Financing Loan Analysis";
+
+    // ---- PDF meta block ----
+    var today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    var metaRows = "";
+    if (dealName) metaRows += "<div class='summary-line'>Property: <strong>" + escapeHtml(dealName) + "</strong></div>";
+    metaRows += "<div class='summary-line'>Prepared: " + today + "</div>";
+    $("pdfMeta").innerHTML = metaRows;
+
+    // ---- Summary ----
+    var dpPct = price > 0 ? (down / price * 100) : 0;
+    var summary = "";
+    summary += "<div class='summary-line'>Purchase price: <strong>" + money(price) + "</strong></div>";
+    summary += "<div class='summary-line'>Down payment: <strong>" + money(down) + "</strong> (" + dpPct.toFixed(1) + "%)</div>";
+    summary += "<div class='summary-line'>Amount financed: <strong>" + money(principal) + "</strong></div>";
+    summary += "<div class='summary-line'>Your max monthly payment: <strong>" + money(budget) + "</strong></div>";
+    if (useBalloon) {
+      summary += "<div class='summary-line'>Structure: <strong>Balloon</strong> &mdash; payments amortized over each term, balance due after " + balloonYears + " year(s)</div>";
+    } else {
+      summary += "<div class='summary-line'>Structure: <strong>Fully amortizing</strong> (loan paid off over the term)</div>";
+    }
+    $("summary").innerHTML = summary;
+
+    // ---- Matrix ----
+    var html = "<table><thead><tr><th class='corner'>Term \\ Rate</th>";
+    rates.forEach(function (rate) {
+      html += "<th>" + formatRate(rate) + "</th>";
+    });
+    html += "</tr></thead><tbody>";
+
+    terms.forEach(function (term) {
+      html += "<tr><td class='rowhead'>" + term + " yr</td>";
+      rates.forEach(function (rate) {
+        var pmt = monthlyPayment(principal, rate, term);
+        var cls = budget > 0 ? (pmt <= budget ? "good" : "bad") : "";
+        html += "<td class='cell " + cls + "'>" + money2(pmt) + "</td>";
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    $("matrixWrap").innerHTML = html;
+
+    var note = "Figures are principal &amp; interest only. Property taxes, insurance, and any HOA dues are not included.";
+    if (useBalloon) {
+      note += " The monthly amount is based on amortizing over each term, but you would owe the remaining balance as a lump sum after " + balloonYears + " year(s) — see the detail table below.";
+    }
+    $("matrixNote").innerHTML = note;
+
+    // ---- Detail table ----
+    buildDetail(principal, terms, rates, useBalloon, balloonYears);
+
+    $("results").style.display = "block";
+    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function buildDetail(principal, terms, rates, useBalloon, balloonYears) {
+    var html = "<table class='detail-table'><thead><tr>";
+    html += "<th style='text-align:left'>Scenario</th>";
+    html += "<th>Monthly P&amp;I</th>";
+    if (useBalloon) {
+      html += "<th>Paid before balloon</th>";
+      html += "<th>Balloon balance<br><span class='hint'>due @ " + balloonYears + " yr</span></th>";
+    } else {
+      html += "<th>Total interest</th>";
+      html += "<th>Total paid</th>";
+    }
+    html += "</tr></thead><tbody>";
+
+    terms.forEach(function (term) {
+      rates.forEach(function (rate) {
+        var pmt = monthlyPayment(principal, rate, term);
+        html += "<tr><td>" + term + " yr @ " + formatRate(rate) + "</td>";
+        html += "<td>" + money2(pmt) + "</td>";
+        if (useBalloon) {
+          var k = Math.min(balloonYears * 12, term * 12);
+          var paid = pmt * k;
+          var bal = remainingBalance(principal, rate, term, k);
+          html += "<td>" + money(paid) + "</td>";
+          html += "<td>" + money(bal) + "</td>";
+        } else {
+          var totalPaid = pmt * term * 12;
+          var interest = totalPaid - principal;
+          html += "<td>" + money(interest) + "</td>";
+          html += "<td>" + money(totalPaid) + "</td>";
+        }
+        html += "</tr>";
+      });
+    });
+    html += "</tbody></table>";
+    $("detailWrap").innerHTML = html;
+  }
+
+  function formatRate(rate) {
+    return (Number.isInteger(rate) ? rate : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")) + "%";
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  // Run once on load so the page isn't empty.
+  calculate();
+})();
+</script>
+</body>
+</html>
