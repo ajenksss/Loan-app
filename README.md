@@ -11,11 +11,12 @@ conversation knowing your true limit and which terms actually work for you.
    browser tab). No installation, no internet connection required.
 2. Fill in the deal inputs:
    - **Property / Deal name** — appears on the printed PDF.
-   - **Purchase price** — the price you're discussing.
-   - **Down payment** — in dollars or as a percentage (toggle the `$` / `%`
-     button).
+   - **Purchase prices to compare** — comma-separated (e.g. `180000, 200000,
+     220000`). Use this to see how different negotiated prices play out.
    - **Your max monthly payment** — your true ceiling. Any payment at or under
      this is highlighted **green**; anything over is **red**.
+   - **Down payments to compare** — comma-separated, in dollars or as a
+     percentage of price (toggle the `$` / `%` button).
    - **Loan terms to compare** — years, comma-separated (e.g. `10, 15, 20, 30`).
    - **Interest rates to compare** — percent, comma-separated (e.g. `4, 5, 6`).
      Include `0` if you're floating a no-interest offer.
@@ -28,12 +29,14 @@ conversation knowing your true limit and which terms actually work for you.
 
 ## What it shows
 
-- **Loan Summary** — price, down payment, amount financed, and the structure.
-- **Monthly Payment by Term & Rate** — the core comparison grid, color-coded
-  against your budget.
-- **Total Cost Detail** — total interest and total paid over each scenario
-  (or, for balloon deals, how much you'd pay in before the balloon and the
-  lump sum still owed).
+- **Loan Summary** — the prices, down payments, max payment, and structure.
+- **Monthly Payment by Term & Rate** — the core comparison grids, one for each
+  purchase price and down payment combination, color-coded against your budget.
+- **Your True Limit** — working backwards from your max monthly payment, the
+  highest purchase price you can afford at each down payment, term, and rate.
+- **Total Cost Detail** — total interest and total paid over each scenario for
+  a chosen price and down payment (or, for balloon deals, how much you'd pay in
+  before the balloon and the lump sum still owed).
 - **Seller's Perspective** — total interest the owner earns and the total
   they'd receive (down payment plus every payment) for each scenario. Hand
   this to the seller to show why financing beats a cash sale.
