@@ -34,6 +34,16 @@ conversation knowing your true limit and which terms actually work for you.
 - **Total Cost Detail** — total interest and total paid over each scenario
   (or, for balloon deals, how much you'd pay in before the balloon and the
   lump sum still owed).
+- **Seller's Perspective** — total interest the owner earns and the total
+  they'd receive (down payment plus every payment) for each scenario. Hand
+  this to the seller to show why financing beats a cash sale.
+- **Side-by-Side Comparison** — pick any two term/rate scenarios and compare
+  them line by line (monthly payment, total interest, total paid, plus balloon
+  figures), including the dollar difference between them.
+- **Amortization Schedule** — a full payoff breakdown for one chosen scenario,
+  either a yearly summary or month by month, showing principal, interest,
+  cumulative interest, and remaining balance. If a balloon applies, the
+  schedule ends with the lump-sum payoff row.
 
 ## Notes
 
